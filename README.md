@@ -107,12 +107,10 @@ Tweak until your heart is content without monkeying yet another config file.
 
 ## Contributing
 
-Your contributions are welcome! Feel free to involve yourself in any way you’re comfortable— bug reporting, pull requests, documentation, etc. No need to ask permission. Remember: **be nice**, we’re all humans here. ❤️ Please see the contribution guidelines if you find common decency confusing.
+Your contributions are welcome! Feel free to involve yourself in any way you’re comfortable— bug reporting, pull requests, documentation, etc. No need to ask permission. Remember: **be nice**, we’re all humans here. ❤️ Please see the [code of conduct](https://github.com/cadeef/cade-task/blob/main/CODE_OF_CONDUCT.md) if you find common decency confusing.
 
-##  License
+## License
 
-This project is available under an MIT license, see LICENSE for more information.
+This project is distributed under an MIT license, see [LICENSE](https://github.com/cadeef/cade-task/blob/main/LICENSE) for more information.
 
 Made it this far? **You deserve a hug.**
-
-#cade-task #cade-task/docs/readme
