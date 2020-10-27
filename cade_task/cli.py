@@ -93,7 +93,7 @@ def list_resolve() -> str:
         lists = get_lists()
         display_table(lists, ["List"], number_lines=True)
         display_title("Unknown list, select one.")
-        n = click.prompt("List ID?", default="0", type=int)
+        n = click.prompt("List ID?", default=0, type=int)
 
         try:
             project = lists[n]
