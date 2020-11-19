@@ -17,7 +17,6 @@ def main() -> None:
 
 
 @main.command()
-# @click.argument("r_list", required=False)
 @click.option("-l", "--list", "r_list", required=False)
 def list(r_list: Optional[str] = None) -> None:
     """
@@ -25,7 +24,11 @@ def list(r_list: Optional[str] = None) -> None:
     """
     r_list = r_list or list_resolve()
     display_title(r_list)
-    display_table(get_tasks(r_list), ["Task"], number_lines=True)
+
+    try:
+        display_table(get_tasks(r_list), ["Task"], number_lines=True)
+    except ListNotFoundException as e:
+        display_error("{}".format(e), exit=255)
 
 
 @main.command()
@@ -33,7 +36,10 @@ def lists() -> None:
     """
     List all Reminders.app lists
     """
-    display_table(get_lists(), ["List"], number_lines=True)
+    try:
+        display_table(get_lists(), ["List"], number_lines=True)
+    except TaskCommandException as e:
+        display_error("{}".format(e), exit=1)
 
 
 @main.command()
@@ -48,7 +54,10 @@ def add(task: Sequence[str], r_list: Optional[str] = None) -> None:
     if not t:
         display_error("No task specified, arborting", exit=1)
 
-    click.echo(run_and_return([reminders(), "add", r_list, t])[0])
+    try:
+        click.echo(run_and_return([reminders(), "add", r_list, t])[0])
+    except TaskCommandException as e:
+        display_error("{}".format(e), exit=1)
 
 
 @main.command()
@@ -61,7 +70,10 @@ def complete(tasks: Sequence[str], r_list: Optional[str] = None) -> None:
     r_list = r_list or list_resolve()
 
     for t in sorted(tasks, reverse=True):
-        click.echo(run_and_return([reminders(), "complete", r_list, t])[0])
+        try:
+            click.echo(run_and_return([reminders(), "complete", r_list, t])[0])
+        except TaskCommandException as e:
+            display_error("{}".format(e), exit=1)
 
 
 @main.command()
@@ -82,11 +94,14 @@ def open() -> None:
     """
     Open Reminders.app or move it to the foreground
     """
-    run_and_return(["/usr/bin/open", "/System/Applications/Reminders.app/"])
+    try:
+        run_and_return(["/usr/bin/open", "/System/Applications/Reminders.app/"])
+    except TaskCommandException as e:
+        display_error("Command '{}' failed with '{}'".format(e.cmd, e.stderr), exit=255)
 
 
 def list_resolve() -> str:
-    match = re.search(rf"^{PROJECT_DIR}/([\w\d\-]+)/?", str(Path.cwd()), re.IGNORECASE)
+    match = re.search(rf"^{PROJECT_DIR}/([\w\-\.]+)/?", str(Path.cwd()), re.IGNORECASE)
     if match:
         project = match[1]
     else:
@@ -104,7 +119,15 @@ def list_resolve() -> str:
 
 
 def get_tasks(r_list: str) -> List[str]:
-    tasks = run_and_return([reminders(), "show", r_list])
+    try:
+        tasks = run_and_return([reminders(), "show", r_list])
+    except TaskCommandException as e:
+        # e_output = e.output.decode("utf-8").rstrip()
+        if "No reminders list matching" in e.output:
+            raise ListNotFoundException("List '{}' not found".format(r_list))
+        else:
+            raise TaskException(e)
+
     # Strip off task numbers to make it more portable.
     # Yes we add them back for output occasionally.
     tasks = [re.sub(r"^[\d\s]+\s", "", t) for t in tasks]
@@ -113,22 +136,19 @@ def get_tasks(r_list: str) -> List[str]:
 
 
 def get_lists() -> List[str]:
-    return run_and_return([reminders(), "show-lists"])
+    try:
+        return run_and_return([reminders(), "show-lists"])
+    except TaskCommandException as e:
+        raise TaskException(e)
 
 
 def run_and_return(cmd: Sequence[str], in_shell=False) -> List[str]:
     try:
         result = run(cmd, capture_output=True, check=True, shell=in_shell)
     except CalledProcessError as e:
-        display_error(
-            "Failed to execute {} (exit {}): {}".format(
-                e.cmd, e.returncode, e.output.decode("utf-8").rstrip()
-            ),
-            exit=255,
-        )
+        raise TaskCommandException(e)
 
     output = result.stdout.decode("utf-8").splitlines()
-
     return output
 
 
@@ -166,7 +186,33 @@ def display_title(title: str) -> None:
 
 
 def reminders() -> str:
-    return run_and_return(["which reminders"], in_shell=True)[0]
+    try:
+        return run_and_return(["which reminders"], in_shell=True)[0]
+    except TaskCommandException as e:
+        raise TaskException(
+            "Unable to locate 'reminders', Command: '{}', Output: '{}'".format(
+                e.cmd, e.stderr
+            )
+        )
+
+
+class TaskException(Exception):
+    """Base Task Exception"""
+
+
+class TaskCommandException(TaskException):
+    """Command failure Exception"""
+
+    def __init__(self, e: CalledProcessError) -> None:
+        self.returncode = e.returncode
+        self.cmd = " ".join(e.cmd)
+        self.output = e.output.decode("utf-8").rstrip()
+        self.stdout = e.stdout.decode("utf-8").rstrip()
+        self.stderr = e.stderr.decode("utf-8").rstrip()
+
+
+class ListNotFoundException(TaskException):
+    """Task exception for when a list is not found"""
 
 
 if __name__ == "__main__":

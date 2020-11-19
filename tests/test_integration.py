@@ -40,6 +40,5 @@ def test_subcommand_list(cli):
     unknown_list_result = cli.invoke(cade_task.cli.list, ["--list", unknown_list])
     assert unknown_list_result.exit_code != 0
     assert (
-        "No reminders list matching {}".format(unknown_list)
-        in unknown_list_result.output
+        "ERROR: List '{}' not found".format(unknown_list) in unknown_list_result.output
     )
