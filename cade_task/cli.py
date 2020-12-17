@@ -130,7 +130,7 @@ def get_tasks(r_list: str) -> List[str]:
 
     # Strip off task numbers to make it more portable.
     # Yes we add them back for output occasionally.
-    tasks = [re.sub(r"^[\d\s]+\s", "", t) for t in tasks]
+    tasks = [re.sub(r"^[\d\s:]+\s", "", t) for t in tasks]
 
     return tasks
 
