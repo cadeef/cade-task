@@ -1,5 +1,6 @@
 import re
 from pathlib import Path
+from shutil import which
 from subprocess import CalledProcessError, run
 from sys import exit as sys_exit
 from typing import List, Optional, Sequence
@@ -28,7 +29,7 @@ def list(r_list: Optional[str] = None) -> None:
     try:
         display_table(get_tasks(r_list), ["Task"], number_lines=True)
     except ListNotFoundException as e:
-        display_error("{}".format(e), exit=255)
+        display_error(str(e), exit=255)
 
 
 @main.command()
@@ -39,7 +40,7 @@ def lists() -> None:
     try:
         display_table(get_lists(), ["List"], number_lines=True)
     except TaskCommandException as e:
-        display_error("{}".format(e), exit=1)
+        display_error(str(e), exit=1)
 
 
 @main.command()
@@ -57,7 +58,7 @@ def add(task: Sequence[str], r_list: Optional[str] = None) -> None:
     try:
         click.echo(run_and_return([reminders(), "add", r_list, t])[0])
     except TaskCommandException as e:
-        display_error("{}".format(e), exit=1)
+        display_error(str(e), exit=1)
 
 
 @main.command()
@@ -73,7 +74,7 @@ def complete(tasks: Sequence[str], r_list: Optional[str] = None) -> None:
         try:
             click.echo(run_and_return([reminders(), "complete", r_list, t])[0])
         except TaskCommandException as e:
-            display_error("{}".format(e), exit=1)
+            display_error(str(e), exit=1)
 
 
 @main.command()
@@ -161,18 +162,12 @@ def display_table(
     if len(array) == 0:
         display_error("No results found")
     else:
-        if number_lines:
-            headers.insert(0, "ID")
-
         data = Dataset()
         data.headers = headers
-        for i, t in enumerate(array):
-            if number_lines:
-                data.append([i, t])
-            else:
-                data.append([t])
+        for t in array:
+            data.append([t])
 
-        click.echo(data.export("cli", tablefmt=tablefmt))
+        click.echo(data.export("cli", showindex=number_lines, tablefmt=tablefmt))
 
 
 def display_error(message: str, exit: Optional[int] = None) -> None:
@@ -186,14 +181,10 @@ def display_title(title: str) -> None:
 
 
 def reminders() -> str:
-    try:
-        return run_and_return(["which reminders"], in_shell=True)[0]
-    except TaskCommandException as e:
-        raise TaskException(
-            "Unable to locate 'reminders', Command: '{}', Output: '{}'".format(
-                e.cmd, e.stderr
-            )
-        )
+    reminders = which("reminders")
+    if not reminders:
+        raise TaskException("reminders-cli not found")
+    return reminders
 
 
 class TaskException(Exception):
