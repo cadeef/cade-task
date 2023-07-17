@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cade-task"
-version = "0.1.1"
+version = "0.2.0"
 description = "A loose wrapper around reminders-cli"
 authors = ["Cade Ekblad-Frank <cade@e-f.me>"]
 

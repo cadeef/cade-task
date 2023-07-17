@@ -1,3 +1,4 @@
+import json
 import re
 from pathlib import Path
 from shutil import which
@@ -27,7 +28,8 @@ def list(r_list: Optional[str] = None) -> None:
     display_title(r_list)
 
     try:
-        display_table(get_tasks(r_list), ["Task"], number_lines=True)
+        tasks = [t["title"] for t in get_tasks(r_list)]  # type: ignore
+        display_table(tasks, ["Task"], number_lines=True)
     except ListNotFoundException as e:
         display_error(str(e), exit=255)
 
@@ -98,7 +100,7 @@ def open() -> None:
     try:
         run_and_return(["/usr/bin/open", "/System/Applications/Reminders.app/"])
     except TaskCommandException as e:
-        display_error("Command '{}' failed with '{}'".format(e.cmd, e.stderr), exit=255)
+        display_error(f"Command '{e.cmd}' failed with '{e.stderr}'", exit=255)
 
 
 def list_resolve() -> str:
@@ -114,43 +116,48 @@ def list_resolve() -> str:
         try:
             project = lists[n]
         except IndexError:
-            display_error("Selection '{}' is invalid".format(n), exit=1)
+            display_error(f"Selection '{n}' is invalid", exit=1)
 
     return project
 
 
 def get_tasks(r_list: str) -> List[str]:
     try:
-        tasks = run_and_return([reminders(), "show", r_list])
+        tasks = run_and_return(
+            [reminders(), "show", "--format", "json", r_list], mode="json"
+        )
     except TaskCommandException as e:
-        # e_output = e.output.decode("utf-8").rstrip()
         if "No reminders list matching" in e.output:
-            raise ListNotFoundException("List '{}' not found".format(r_list))
+            raise ListNotFoundException(f"List '{r_list}' not found")
         else:
             raise TaskException(e)
-
-    # Strip off task numbers to make it more portable.
-    # Yes we add them back for output occasionally.
-    tasks = [re.sub(r"^[\d\s:]+\s", "", t) for t in tasks]
 
     return tasks
 
 
 def get_lists() -> List[str]:
     try:
-        return run_and_return([reminders(), "show-lists"])
+        return run_and_return(
+            [reminders(), "show-lists", "--format", "json"], mode="json"
+        )
     except TaskCommandException as e:
         raise TaskException(e)
 
 
-def run_and_return(cmd: Sequence[str], in_shell=False) -> List[str]:
+def run_and_return(cmd: Sequence[str], mode="raw") -> List[str]:
     try:
-        result = run(cmd, capture_output=True, check=True, shell=in_shell)
+        result = run(cmd, capture_output=True, check=True, shell=False)
     except CalledProcessError as e:
         raise TaskCommandException(e)
 
-    output = result.stdout.decode("utf-8").splitlines()
-    return output
+    if mode == "raw":
+        raw = result.stdout.decode("utf-8").splitlines()
+        return raw
+    elif mode == "json":
+        json_output = result.stdout.decode("utf-8").strip()
+        return json.loads(json_output)
+    else:
+        raise TaskException("invalid mode")
 
 
 def display_table(
@@ -171,13 +178,13 @@ def display_table(
 
 
 def display_error(message: str, exit: Optional[int] = None) -> None:
-    click.secho("ERROR: {}".format(message), fg="red")
+    click.secho(f"ERROR: {message}", fg="red")
     if exit:
         sys_exit(exit)
 
 
 def display_title(title: str) -> None:
-    click.secho("{}".format(title), fg="green", bold=True)
+    click.secho(f"{title}", fg="green", bold=True)
 
 
 def reminders() -> str:
