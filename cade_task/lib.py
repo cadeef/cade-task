@@ -1,30 +1,34 @@
 import json
-import re
 from pathlib import Path
 from shutil import which
 from subprocess import CalledProcessError, run
 from typing import List
 
-PROJECT_DIR = Path(Path.home(), "code")
 
+def list_resolve(project_dir: str, working_dir: str | None = None) -> str | None:
+    if working_dir:
+        cwd = Path(working_dir)
+    else:
+        cwd = Path.cwd()
 
-def list_resolve() -> str:
-    match = re.search(rf"^{PROJECT_DIR}/([\w\-\.]+)/?", str(Path.cwd()), re.IGNORECASE)
-    if match:
-        project = match[1]
-    # FIXME: Migrate all UX into cli
-    # else:
-    #     lists = get_lists()
-    #     display_table(lists, ["List"], number_lines=True)
-    #     display_title("Unknown list, select one.")
-    #     n = click.prompt("List ID?", default=0, type=int)  # type: ignore[arg-type]
+    # Is project dir part of cwd?
+    try:
+        project_dir_relative = cwd.relative_to(project_dir)
+    except ValueError:
+        return None
 
-    #     try:
-    #         project = lists[n]
-    #     except IndexError:
-    #         display_error(f"Selection '{n}' is invalid", exit=1)
+    # Project_dir and workding dir are the same? (project_path)
+    if project_dir_relative == Path("."):
+        return None
 
-    return project
+    try:
+        # In a nested directory of a project? (project_path/<project>/yup)
+        project = project_dir_relative.parents[1]
+    except IndexError:
+        # Must be in base project directory (project_path/<project>)
+        project = project_dir_relative
+
+    return str(project)
 
 
 def get_tasks(r_list: str) -> List[str]:
@@ -46,7 +50,9 @@ def get_lists() -> List[str]:
         raise TaskException(e)
 
 
-def run_and_return(cmd: List[str], mode="raw", inject_reminder=True) -> List[str]:
+def run_and_return(
+    cmd: List[str], mode: str = "raw", inject_reminder: bool = True
+) -> List[str]:
     # Add reminders path to beginning of command
     if inject_reminder:
         cmd = [reminders()] + cmd

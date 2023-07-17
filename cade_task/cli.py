@@ -17,25 +17,41 @@ PROJECT_DIR = Path(Path.home(), "code")
 
 
 @click.group()
-# @click.option("-d", "--project-dir", "project-dir", required=False)
-def main() -> None:
-    pass
+@click.option(
+    "-d",
+    "--project-dir",
+    "project_dir",
+    type=click.Path(exists=True),
+    required=False,
+    help="Base path for automatic directory-based list resolution",
+)
+@click.pass_context
+def main(ctx, project_dir: str | None) -> None:
+    if ctx.obj is None:
+        ctx.obj = dict()
+
+    project_dir = project_dir or str(PROJECT_DIR)
+    ctx.obj["project"] = list_resolve(project_dir)
 
 
 @main.command()
-@click.option("-l", "--list", "r_list", required=False)
-def list(r_list: Optional[str] = None) -> None:
+@click.pass_context
+@click.option("-l", "--list", "project", required=False)
+def list(ctx, project: Optional[str] = None) -> None:
     """
     List tasks for a given project
     """
-    r_list = r_list or list_resolve()
-    display_title(r_list)
+    project = project or ctx.obj["project"]
 
+    if not project:
+        raise click.ClickException("Unable to determine list")
+
+    display_title(project)
     try:
-        tasks = [t["title"] for t in get_tasks(r_list)]  # type: ignore
+        tasks = [t["title"] for t in get_tasks(project)]  # type: ignore
         display_table(tasks, ["Task"], number_lines=True)
     except ListNotFoundException:
-        raise click.BadParameter("List not found", param_hint="--list")
+        raise click.ClickException(f"List '{project}' not found")
 
 
 @main.command()
@@ -50,50 +66,46 @@ def lists() -> None:
 
 
 @main.command()
+@click.pass_context
 @click.argument("task", nargs=-1)
-@click.option("-l", "--list", "r_list", required=False)
-def add(task: Sequence[str], r_list: Optional[str] = None) -> None:
+@click.option("-l", "--list", "project", required=False)
+def add(ctx, task: Sequence[str], project: Optional[str] = None) -> None:
     """
     Add a task to a given project
     """
-    r_list = r_list or list_resolve()
+    project = project or ctx.obj["project"]
+
+    if not project:
+        raise click.ClickException("Unable to determine list")
+
     t = " ".join(str(i) for i in task)
     if not t:
         raise click.ClickException("No task specified, arborting")
 
     try:
-        click.echo(run_and_return(["add", r_list, t])[0])
+        click.echo(run_and_return(["add", project, t])[0])
     except TaskCommandException as e:
         raise click.ClickException(e)
 
 
 @main.command()
+@click.pass_context
 @click.argument("tasks", nargs=-1)
-@click.option("-l", "--list", "r_list", required=False)
-def complete(tasks: Sequence[str], r_list: Optional[str] = None) -> None:
+@click.option("-l", "--list", "project", required=False)
+def complete(ctx, tasks: Sequence[str], project: Optional[str] = None) -> None:
     """
     Complete task(s) for a given project
     """
-    r_list = r_list or list_resolve()
+    if not project and not ctx.obj["project"]:
+        raise click.ClickException("Unable to determine list")
+
+    project = project or ctx.obj["project"]
 
     for t in sorted(tasks, reverse=True):
         try:
-            click.echo(run_and_return(["complete", r_list, t])[0])
+            click.echo(run_and_return(["complete", project, t])[0])
         except TaskCommandException as e:
             raise click.ClickException(e)
-
-
-@main.command()
-@click.option(
-    "-u", "--user", required=False, help="user to match, i.e. 'FIXME(<user>):'"
-)
-def sync(user: Optional[str] = None) -> None:
-    """
-    Synchronize TODO|FIXME code comments to and from Reminders.app
-    """
-
-    # TODO: Add automagic syncing of TODO|FIXME|WHATEVER to project lists
-    pass
 
 
 @main.command()
