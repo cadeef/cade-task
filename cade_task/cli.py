@@ -4,7 +4,7 @@ from typing import List, Optional, Sequence
 import click
 from tablib import Dataset
 
-from .lib import (
+from .lib import (  # isort:skip
     ListNotFoundException,
     TaskCommandException,
     get_lists,
