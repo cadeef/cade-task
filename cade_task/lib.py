@@ -31,12 +31,12 @@ def list_resolve(project_dir: str, working_dir: str | None = None) -> str | None
     return str(project)
 
 
-def get_tasks(r_list: str) -> List[str]:
+def get_tasks(project: str) -> List[str]:
     try:
-        tasks = run_and_return(["show", r_list], mode="json")
+        tasks = run_and_return(["show", project], mode="json")
     except TaskCommandException as e:
         if "No reminders list matching" in e.output:
-            raise ListNotFoundException(f"List '{r_list}' not found")
+            raise ListNotFoundException(f"List '{project}' not found")
         else:
             raise TaskException(e)
 
