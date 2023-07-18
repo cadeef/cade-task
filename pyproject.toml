@@ -9,11 +9,11 @@ task = 'cade_task.cli:main'
 
 [tool.poetry.dependencies]
 python = "^3.11"
-click = "^8.1.3"
+click = "^8.1.5"
 tablib = {extras = ["cli"], version = "^3.5.0"}
 
 [tool.poetry.dev-dependencies]
-pytest = "^7.3.2"
+pytest = "^7.4.0"
 
 [build-system]
 requires = ["poetry>=1.5.1"]
