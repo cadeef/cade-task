@@ -51,19 +51,6 @@ task complete 6 1 3
 
 Tasks are completed in reverse numerical order (10...1) to avoid re-parsing the task list after each task is completed.
 
-### Task Sync
-
-Synchronize  `TODO|FIXME` tasks from code comments. Task makes a best effort to sync back and forth, but it’s not exactly smart. It will create any task not currently in your list and complete them when changed or removed. Gets the job done through brute force rather than elegance.
-
-```
-task sync
-```
-
-Optionally, pass `—-user` if your organization uses the `TODO(<user>)` convention to snag just your tasks:
-
-```
-task sync —-user <user>
-```
 
 ### Open Reminders.app
 
@@ -76,7 +63,6 @@ task open
 - - - -
 
 Additional usage information is available via `—-help` on the command line.
-
 
 ### Shell Aliases
 
@@ -104,10 +90,6 @@ Tweak until your heart is content without monkeying yet another config file.
 
 * Apple doesn’t expose the ability to create lists via the EventKit API or AppleScript. 😔 In scenarios where a project task list doesn’t exist, you’ll be prompted to create the list in Reminders.app.
 * Task wraps [Keith Smiley’s reminders-cli](https://github.com/keith/reminders-cli). Task is intended as a backend-agnostic wrapper that standardizes use without being tied to a specific implementation— I don’t want to retrain muscle memory if a new killer app comes along.
-
-## Contributing
-
-Your contributions are welcome! Feel free to involve yourself in any way you’re comfortable— bug reporting, pull requests, documentation, etc. No need to ask permission. Remember: **be nice**, we’re all humans here. ❤️ Please see the [code of conduct](https://github.com/cadeef/cade-task/blob/main/CODE_OF_CONDUCT.md) if you find common decency confusing.
 
 ## License
 
