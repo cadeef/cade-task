@@ -2,7 +2,6 @@ import json
 from pathlib import Path
 from shutil import which
 from subprocess import CalledProcessError, run
-from typing import List
 
 
 def list_resolve(project_dir: str, working_dir: str | None = None) -> str | None:
@@ -31,7 +30,7 @@ def list_resolve(project_dir: str, working_dir: str | None = None) -> str | None
     return str(project)
 
 
-def get_tasks(project: str) -> List[str]:
+def get_tasks(project: str) -> list[str]:
     try:
         tasks = run_and_return(["show", project], mode="json")
     except TaskCommandException as e:
@@ -43,7 +42,7 @@ def get_tasks(project: str) -> List[str]:
     return tasks
 
 
-def get_lists() -> List[str]:
+def get_lists() -> list[str]:
     try:
         return run_and_return(["show-lists"], mode="json")
     except TaskCommandException as e:
@@ -51,8 +50,8 @@ def get_lists() -> List[str]:
 
 
 def run_and_return(
-    cmd: List[str], mode: str = "raw", inject_reminder: bool = True
-) -> List[str]:
+    cmd: list[str], mode: str = "raw", inject_reminder: bool = True
+) -> list[str]:
     # Add reminders path to beginning of command
     if inject_reminder:
         cmd = [reminders()] + cmd

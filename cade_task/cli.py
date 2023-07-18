@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Optional, Sequence
+from typing import List, Sequence
 
 import click
 from tablib import Dataset
@@ -13,7 +13,8 @@ from .lib import (  # isort:skip
     run_and_return,
 )
 
-PROJECT_DIR = Path(Path.home(), "code")
+# Default
+PROJECT_DIR = Path.home() / "code"
 
 
 @click.group()
@@ -37,7 +38,7 @@ def main(ctx, project_dir: str | None) -> None:
 @main.command()
 @click.pass_context
 @click.option("-l", "--list", "project", required=False)
-def list(ctx, project: Optional[str] = None) -> None:
+def list(ctx, project: str | None = None) -> None:
     """
     List tasks for a given project
     """
@@ -60,7 +61,7 @@ def lists() -> None:
     List all Reminders.app lists
     """
     try:
-        display_table(get_lists(), ["List"], number_lines=True)
+        display_table(get_lists(), ["List"], number_lines=False)
     except TaskCommandException as e:
         raise click.ClickException(e)
 
@@ -69,7 +70,7 @@ def lists() -> None:
 @click.pass_context
 @click.argument("task", nargs=-1)
 @click.option("-l", "--list", "project", required=False)
-def add(ctx, task: Sequence[str], project: Optional[str] = None) -> None:
+def add(ctx, task: Sequence[str], project: str | None = None) -> None:
     """
     Add a task to a given project
     """
@@ -92,7 +93,7 @@ def add(ctx, task: Sequence[str], project: Optional[str] = None) -> None:
 @click.pass_context
 @click.argument("tasks", nargs=-1)
 @click.option("-l", "--list", "project", required=False)
-def complete(ctx, tasks: Sequence[str], project: Optional[str] = None) -> None:
+def complete(ctx, tasks: Sequence[str], project: str | None = None) -> None:
     """
     Complete task(s) for a given project
     """
@@ -124,6 +125,8 @@ def open() -> None:
 
 def display_table(
     array: Sequence[str],
+    # FIXME: Having a function called list wasn't a great idea, figure out re-naming so list[str]
+    # can be used for consistency
     headers: List[str],
     number_lines=False,
     tablefmt: str = "fancy_grid",

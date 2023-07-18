@@ -3,7 +3,7 @@ from click.testing import CliRunner
 
 import cade_task.cli
 
-TASK_COMMANDS = ["list", "lists", "add", "complete", "open"]
+TASK_COMMANDS = ["list", "add", "complete", "lists", "open"]
 
 
 @pytest.fixture
@@ -35,8 +35,16 @@ def test_subcommands_exist(cli, command):
     assert result.exit_code == 0
 
 
-def test_subcommand_list(cli):
+def test_list_unknown(cli):
     unknown_list = "uhduh34852f56"
     unknown_list_result = cli.invoke(cade_task.cli.list, ["--list", unknown_list])
     assert unknown_list_result.exit_code != 0
     assert f"List '{unknown_list}' not found" in unknown_list_result.output
+
+
+def test_add(cli):
+    pass
+
+
+def test_complete():
+    pass
