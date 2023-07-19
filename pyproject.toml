@@ -2,7 +2,11 @@
 name = "cade-task"
 version = "0.2.0"
 description = "A loose wrapper around reminders-cli"
+readme = "README.md"
 authors = ["Cade Ekblad-Frank <cade@e-f.me>"]
+
+[tool.poetry.urls]
+"Homepage" = "https://github.com/cadeef/cade-task"
 
 [tool.poetry.scripts]
 task = 'cade_task.cli:main'
