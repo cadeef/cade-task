@@ -3,10 +3,18 @@ Task is a light CLI wrapper around Reminders.app ([reminders-cli](https://github
 
 ## Install
 
-Installation is easiest via [brew](https://brew.sh/):
+[pipx](https://pypa.github.io/pipx/):
 
 ```
-brew install cadeef/homebrew-tap/cade-task
+pipx install cade-task
+```
+
+[brew](https://brew.sh/):
+
+*Building bottles of python modules is flaky, not currently maintained*
+
+```
+brew install cadeef/tap/cade-task
 ```
 
 ## Usage
