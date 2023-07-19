@@ -37,8 +37,6 @@ Not in your project directory? No problem, specify the list you’d like to inte
 task list —-list <yourgloriouslist>
 ```
 
-Don’t feel like passing a list? Specify `—-list` without an argument to select at the prompt.
-
 The list selection convention is consistent throughout the app.
 
 ### Add a Task
@@ -96,7 +94,7 @@ Tweak until your heart is content without monkeying yet another config file.
 
 ## Caveats
 
-* Apple doesn’t expose the ability to create lists via the EventKit API or AppleScript. 😔 In scenarios where a project task list doesn’t exist, you’ll be prompted to create the list in Reminders.app.
+* Apple doesn’t expose the ability to create lists via the EventKit API or AppleScript. 😔 In scenarios where a project task list doesn’t exist, you’ll need to create the list in Reminders.app.
 * Task wraps [Keith Smiley’s reminders-cli](https://github.com/keith/reminders-cli). Task is intended as a backend-agnostic wrapper that standardizes use without being tied to a specific implementation— I don’t want to retrain muscle memory if a new killer app comes along.
 
 ## License
