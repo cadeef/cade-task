@@ -72,7 +72,7 @@ Additional usage information is available via `—-help` on the command line.
 
 ### Shell Aliases
 
-I’m not keen on managing additional configuration files for simple applications so there is no external config to set, but the defaults may not work for you. Shell aliases let us accomplish similar without another file to manage. Define a different project directory from bash:
+The defaults may not work for you. Shell aliases are cheap and easy. Define a different project directory from bash:
 
 ```bash
 TASK_PROJECT_DIR=“${HOME}/myprettyneatprojectdir”
@@ -94,7 +94,6 @@ Tweak until your heart is content without monkeying yet another config file.
 
 ## Caveats
 
-- Apple doesn’t expose the ability to create lists via the EventKit API or AppleScript. 😔 In scenarios where a project task list doesn’t exist, you’ll need to create the list in Reminders.app.
 - Task wraps [Keith Smiley’s reminders-cli](https://github.com/keith/reminders-cli). Task is intended as a backend-agnostic wrapper that standardizes use without being tied to a specific implementation— I don’t want to retrain muscle memory if a new killer app comes along.
 
 ## License
