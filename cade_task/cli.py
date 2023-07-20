@@ -63,7 +63,7 @@ def lists() -> None:
     try:
         display_table(get_lists(), ["List"], number_lines=False)
     except TaskCommandException as e:
-        raise click.ClickException(e)
+        raise click.ClickException(e)  # type: ignore[arg-type]
 
 
 @main.command()
@@ -86,7 +86,7 @@ def add(ctx, task: Sequence[str], project: str | None = None) -> None:
     try:
         click.echo(run_and_return(["add", project, t])[0])
     except TaskCommandException as e:
-        raise click.ClickException(e)
+        raise click.ClickException(e)  # type: ignore[arg-type]
 
 
 @main.command()
@@ -106,7 +106,7 @@ def complete(ctx, tasks: Sequence[str], project: str | None = None) -> None:
         try:
             click.echo(run_and_return(["complete", project, t])[0])
         except TaskCommandException as e:
-            raise click.ClickException(e)
+            raise click.ClickException(e)  # type: ignore[arg-type]
 
 
 @main.command()
@@ -120,7 +120,7 @@ def open() -> None:
             inject_reminder=False,
         )
     except TaskCommandException as e:
-        raise click.ClickException(f"Command '{e.cmd}' failed with '{e.stderr}'")
+        raise click.ClickException(e)  # type: ignore[arg-type]
 
 
 def display_table(

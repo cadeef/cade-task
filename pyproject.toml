@@ -16,12 +16,24 @@ python = "^3.11"
 click = "^8.1.5"
 tablib = {extras = ["cli"], version = "^3.5.0"}
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
+pytest-cov = "^4.1.0"
 pytest = "^7.4.0"
+black = "^23.7.0"
+ruff = "^0.0.278"
+mypy = "^1.4.1"
 
 [build-system]
 requires = ["poetry>=1.5.1"]
 build-backend = "poetry.masonry.api"
 
+[[tool.mypy.overrides]]
+module = [
+    "click",
+    "tablib"
+]
+ignore_missing_imports = true
+
 [tool.ruff]
-# line-length = 100
+# https://beta.ruff.rs/docs/rules/
+select = ["E", "F", "I"]

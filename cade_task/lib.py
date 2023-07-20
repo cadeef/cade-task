@@ -95,6 +95,9 @@ class TaskCommandException(TaskException):
         self.stdout = e.stdout.decode("utf-8").rstrip()
         self.stderr = e.stderr.decode("utf-8").rstrip()
 
+    def __str__(self) -> str:
+        return f"'{self.cmd}' failed ({self.returncode}):\n{self.stderr}"
+
 
 class ListNotFoundException(TaskException):
     """Task exception for when a list is not found"""
