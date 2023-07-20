@@ -1,4 +1,5 @@
 # Task (cade-task)
+
 Task is a light CLI wrapper around Reminders.app ([reminders-cli](https://github.com/keith/reminders-cli)) that unifies use with dead-simple, sane defaults to remove friction from GTD.
 
 ## Install
@@ -57,7 +58,6 @@ task complete 6 1 3
 
 Tasks are completed in reverse numerical order (10...1) to avoid re-parsing the task list after each task is completed.
 
-
 ### Open Reminders.app
 
 Conveniently open (or bring to the foreground) Reminders.app:
@@ -66,7 +66,7 @@ Conveniently open (or bring to the foreground) Reminders.app:
 task open
 ```
 
-- - - -
+______________________________________________________________________
 
 Additional usage information is available via `—-help` on the command line.
 
@@ -94,8 +94,8 @@ Tweak until your heart is content without monkeying yet another config file.
 
 ## Caveats
 
-* Apple doesn’t expose the ability to create lists via the EventKit API or AppleScript. 😔 In scenarios where a project task list doesn’t exist, you’ll need to create the list in Reminders.app.
-* Task wraps [Keith Smiley’s reminders-cli](https://github.com/keith/reminders-cli). Task is intended as a backend-agnostic wrapper that standardizes use without being tied to a specific implementation— I don’t want to retrain muscle memory if a new killer app comes along.
+- Apple doesn’t expose the ability to create lists via the EventKit API or AppleScript. 😔 In scenarios where a project task list doesn’t exist, you’ll need to create the list in Reminders.app.
+- Task wraps [Keith Smiley’s reminders-cli](https://github.com/keith/reminders-cli). Task is intended as a backend-agnostic wrapper that standardizes use without being tied to a specific implementation— I don’t want to retrain muscle memory if a new killer app comes along.
 
 ## License
 

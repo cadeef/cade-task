@@ -22,3 +22,6 @@ pytest = "^7.4.0"
 [build-system]
 requires = ["poetry>=1.5.1"]
 build-backend = "poetry.masonry.api"
+
+[tool.ruff]
+# line-length = 100

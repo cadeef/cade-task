@@ -125,8 +125,8 @@ def open() -> None:
 
 def display_table(
     array: Sequence[str],
-    # FIXME: Having a function called list wasn't a great idea, figure out re-naming so list[str]
-    # can be used for consistency
+    # FIXME: Having a function called list wasn't a great idea, figure out re-naming
+    # so list[str] can be used for consistency
     headers: List[str],
     number_lines=False,
     tablefmt: str = "fancy_grid",
