@@ -24,7 +24,7 @@ def list_name_from_path(project_dir: str, working_dir: str | None = None) -> str
     if project_dir_relative == Path("."):
         return None
 
-    # Strip off the first element of parts as project
+    # Set the first element of parts as project
     parts = project_dir_relative.parts
     if len(parts) >= 1:
         project = parts[0]

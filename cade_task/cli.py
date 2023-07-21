@@ -1,7 +1,8 @@
 from pathlib import Path
-from typing import List, Sequence
+from typing import Sequence
 
 import click
+from devtools import debug  # noqa: F401
 from tablib import Dataset
 
 from .lib import (
@@ -44,10 +45,10 @@ def main(ctx, project_dir: str) -> None:
     ctx.obj["project"] = project
 
 
-@main.command()
+@main.command("list")
 @click.pass_context
 @click.option("-l", "--list", "project", required=False)
-def list(ctx, project: str | None = None) -> None:
+def list_(ctx, project: str | None = None) -> None:
     """
     List tasks for a given project
     """
@@ -66,14 +67,20 @@ def list(ctx, project: str | None = None) -> None:
 
 
 @main.command()
-def lists() -> None:
+@click.option("-c", "--create", "create", required=False, help="name of list to create")
+def lists(create: str) -> None:
     """
     List all Reminders.app lists
     """
-    try:
-        display_table(get_lists(), ["List"], number_lines=False)
-    except TaskCommandException as e:
-        raise click.ClickException(e)  # type: ignore[arg-type]
+    if create:
+        task_list = TaskList(create)
+        task_list.create()
+        click.echo(f"List '{create}' created.")
+    else:
+        try:
+            display_table(get_lists(), ["List"], number_lines=False)
+        except TaskCommandException as e:
+            raise click.ClickException(e)  # type: ignore[arg-type]
 
 
 @main.command()
@@ -137,9 +144,7 @@ def open() -> None:
 
 def display_table(
     array: Sequence[str],
-    # FIXME: Having a function called list wasn't a great idea, figure out re-naming
-    # so list[str] can be used for consistency
-    headers: List[str],
+    headers: list[str],
     number_lines=False,
     tablefmt: str = "fancy_grid",
 ) -> None:

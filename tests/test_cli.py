@@ -37,7 +37,9 @@ def test_subcommands_exist(cli, command):
 
 def test_list_unknown(cli):
     unknown_list = "uhduh34852f56"
-    unknown_list_result = cli.invoke(cade_task.cli.list, ["--list", unknown_list])
+    unknown_list_result = cli.invoke(
+        cade_task.cli.main, ["list", "--list", unknown_list]
+    )
     assert unknown_list_result.exit_code != 0
     assert f"List '{unknown_list}' not found" in unknown_list_result.output
 
