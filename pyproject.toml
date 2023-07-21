@@ -22,6 +22,8 @@ pytest = "^7.4.0"
 black = "^23.7.0"
 ruff = "^0.0.278"
 mypy = "^1.4.1"
+devtools = "^0.11.0"
+pygments = "^2.15.1"
 
 [build-system]
 requires = ["poetry>=1.5.1"]

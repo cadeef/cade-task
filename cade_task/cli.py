@@ -4,12 +4,13 @@ from typing import List, Sequence
 import click
 from tablib import Dataset
 
-from .lib import (  # isort:skip
+from .lib import (
     ListNotFoundException,
     TaskCommandException,
+    # TaskItem,
+    TaskList,
     get_lists,
-    get_tasks,
-    list_resolve,
+    list_name_from_path,
     run_and_return,
 )
 
@@ -24,18 +25,21 @@ PROJECT_DIR = Path.home() / "code"
     "project_dir",
     type=click.Path(exists=True),
     required=False,
+    default=str(PROJECT_DIR),
     help="Base path for automatic directory-based list resolution",
 )
 @click.pass_context
-def main(ctx, project_dir: str | None) -> None:
-    if ctx.obj is None:
-        ctx.obj = dict()
+def main(ctx, project_dir: str) -> None:
+    ctx.ensure_object(dict)
 
-    project_dir = project_dir or str(PROJECT_DIR)
-    project = list_resolve(project_dir)
+    project = list_name_from_path(project_dir)
 
+    # Create list if it is a project in project_dir and doesn't exist
     if project is not None:
-        ctx.obj["is_project_dir"] = True
+        task_list = TaskList(project)
+        if not task_list.exists():
+            task_list.create()
+            click.echo(f"INFO: Created list '{project}'")
 
     ctx.obj["project"] = project
 
@@ -54,7 +58,8 @@ def list(ctx, project: str | None = None) -> None:
 
     display_title(project)
     try:
-        tasks = [t["title"] for t in get_tasks(project)]  # type: ignore
+        task_list = TaskList(project)
+        tasks = [t.title for t in task_list.tasks()]  # type: ignore
         display_table(tasks, ["Task"], number_lines=True)
     except ListNotFoundException:
         raise click.ClickException(f"List '{project}' not found")
@@ -89,6 +94,8 @@ def add(ctx, task: Sequence[str], project: str | None = None) -> None:
         raise click.ClickException("No task specified, arborting")
 
     try:
+        # task = TaskItem(t, project)
+        # task.add()
         click.echo(run_and_return(["add", project, t])[0])
     except TaskCommandException as e:
         raise click.ClickException(e)  # type: ignore[arg-type]

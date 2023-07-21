@@ -1,6 +1,6 @@
 import pytest
 
-from cade_task.lib import list_resolve
+from cade_task.lib import list_name_from_path
 
 
 @pytest.mark.parametrize(
@@ -10,11 +10,16 @@ from cade_task.lib import list_resolve
         ("/home/bill/work", "/home/bill/work", None),
         ("/etc/", "/home/bill/work/", None),
         ("/home/bill/work/my_project", "/home/bill/work", "my_project"),
-        ("/home/bill/work/my_project/is/somewhere", "/home/bill/work", "my_project"),
+        ("/home/bill/work/my_project/nested_dir", "/home/bill/work", "my_project"),
+        (
+            "/home/bill/work/my_project/nested_dir/second/nested_dir",
+            "/home/bill/work",
+            "my_project",
+        ),
     ),
 )
-def test_list_resolve(working_dir, project_dir, expected):
-    assert list_resolve(project_dir, working_dir) == expected
+def test_list_name_from_path(working_dir, project_dir, expected):
+    assert list_name_from_path(project_dir, working_dir) == expected
 
 
 def test_get_lists():
