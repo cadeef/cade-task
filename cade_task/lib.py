@@ -37,16 +37,33 @@ def get_tasks(project: str) -> list[str]:
         if "No reminders list matching" in e.output:
             raise ListNotFoundException(f"List '{project}' not found")
         else:
-            raise TaskException(e)
+            raise
 
     return tasks
 
 
 def get_lists() -> list[str]:
+    return run_and_return(["show-lists"], mode="json")
+
+
+def create_list(name: str):
+    # List name uniqueness isn't required by Reminders.app, but it causes issues
+    # when referring to lists as a simple string.
+    if not list_exists(name):
+        run_and_return(["new-list", name], mode="raw")
+
+    # FIXME: return possibilities...
+    # * list exists
+    # *
+
+
+def list_exists(name: str) -> bool:
     try:
-        return run_and_return(["show-lists"], mode="json")
-    except TaskCommandException as e:
-        raise TaskException(e)
+        _ = get_tasks(name)
+    except ListNotFoundException:
+        return False
+
+    return True
 
 
 def run_and_return(

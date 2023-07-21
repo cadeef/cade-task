@@ -32,7 +32,12 @@ def main(ctx, project_dir: str | None) -> None:
         ctx.obj = dict()
 
     project_dir = project_dir or str(PROJECT_DIR)
-    ctx.obj["project"] = list_resolve(project_dir)
+    project = list_resolve(project_dir)
+
+    if project is not None:
+        ctx.obj["is_project_dir"] = True
+
+    ctx.obj["project"] = project
 
 
 @main.command()
