@@ -9,12 +9,12 @@ authors = ["Cade Ekblad-Frank <cade@e-f.me>"]
 "Homepage" = "https://github.com/cadeef/cade-task"
 
 [tool.poetry.scripts]
-task = 'cade_task.cli:main'
+task = 'cade_task.cli:app'
 
 [tool.poetry.dependencies]
 python = "^3.11"
 click = "^8.1.5"
-tablib = {extras = ["cli"], version = "^3.5.0"}
+typer = {extras = ["all"], version = "^0.9.0"}
 
 [tool.poetry.group.dev.dependencies]
 pytest-cov = "^4.1.0"
@@ -32,7 +32,6 @@ build-backend = "poetry.masonry.api"
 [[tool.mypy.overrides]]
 module = [
     "click",
-    "tablib"
 ]
 ignore_missing_imports = true
 

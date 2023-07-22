@@ -8,6 +8,88 @@ from typing import Any
 from devtools import debug  # noqa: F401
 
 
+@dataclass
+class TaskItem(object):
+    """Reminder/task"""
+
+    # {'externalId': 'CC7A70EB-0526-47AC-A4E3-D0EA5B2CF491',
+    #   'isCompleted': False,
+    #   'list': 'test',
+    #   'priority': 0,
+    #   'title': 'this is a magic test'},
+    title: str
+    parent: str
+    id: str | None = None
+    is_complete: bool | None = None
+    priority: int | None = None
+    index: int | None = None
+
+    @staticmethod
+    def from_dict(task: dict[str, Any]) -> "TaskItem":
+        # Clean up naming convention
+        rename_rules = {
+            "externalId": "id",
+            "isCompleted": "is_complete",
+            "list": "parent",
+        }
+
+        for attribute in task.copy():
+            if attribute in rename_rules:
+                task[rename_rules[attribute]] = task.pop(attribute)
+
+        return TaskItem(**task)
+
+    def add(self):
+        run_and_return(["add", self.parent, self.title])
+        # Successful output: Added 'yet another test' to 'test'
+        # FIXME: finish up when less tired
+        # try:
+        #     result = run_and_return(["add", self.parent, self.title])
+        # except TaskCommandException as e:
+        #     return False
+        # pass
+
+    def complete(self):
+        run_and_return(["complete", self.parent, self.index])
+
+    def edit(self):
+        pass
+
+
+@dataclass
+class TaskList:
+    """Reminders list object"""
+
+    name: str
+
+    def exists(self) -> bool:
+        try:
+            _ = self.tasks()
+        except ListNotFoundException:
+            return False
+
+        return True
+
+    def create(self):
+        if not self.exists():
+            run_and_return(["new-list", self.name], mode="raw")
+
+    def tasks(self) -> list[TaskItem] | None:
+        if hasattr(self, "_tasks"):
+            return self._tasks  # type: ignore
+
+        try:
+            tasks = run_and_return(["show", self.name], mode="json")
+        except TaskCommandException as e:
+            if "No reminders list matching" in e.output:
+                raise ListNotFoundException(f"List '{self.name}' not found")
+            else:
+                raise
+
+        self._tasks = [TaskItem.from_dict(t) for t in tasks]  # type: ignore[arg-type]
+        return self._tasks
+
+
 def list_name_from_path(project_dir: str, working_dir: str | None = None) -> str | None:
     if working_dir:
         cwd = Path(working_dir)
@@ -32,40 +114,8 @@ def list_name_from_path(project_dir: str, working_dir: str | None = None) -> str
     return project
 
 
-def get_tasks(project: str) -> list[str]:
-    try:
-        tasks = run_and_return(["show", project], mode="json")
-    except TaskCommandException as e:
-        if "No reminders list matching" in e.output:
-            raise ListNotFoundException(f"List '{project}' not found")
-        else:
-            raise
-
-    return tasks
-
-
 def get_lists() -> list[str]:
     return run_and_return(["show-lists"], mode="json")
-
-
-def create_list(name: str):
-    # List name uniqueness isn't required by Reminders.app, but it causes issues
-    # when referring to lists as a simple string.
-    if not list_exists(name):
-        run_and_return(["new-list", name], mode="raw")
-
-    # FIXME: return possibilities...
-    # * list exists
-    # *
-
-
-def list_exists(name: str) -> bool:
-    try:
-        _ = get_tasks(name)
-    except ListNotFoundException:
-        return False
-
-    return True
 
 
 def run_and_return(
@@ -120,84 +170,3 @@ class TaskCommandException(TaskException):
 
 class ListNotFoundException(TaskException):
     """Task exception for when a list is not found"""
-
-
-@dataclass
-class TaskItem(object):
-    """Reminder/task"""
-
-    # {'externalId': 'CC7A70EB-0526-47AC-A4E3-D0EA5B2CF491',
-    #   'isCompleted': False,
-    #   'list': 'test',
-    #   'priority': 0,
-    #   'title': 'this is a magic test'},
-    title: str
-    parent: str
-    id: str | None = None
-    is_complete: bool | None = None
-    priority: int | None = None
-    index: int | None = None
-
-    @staticmethod
-    def from_dict(task: dict[str, Any]) -> "TaskItem":
-        # Clean up naming convention
-        rename_rules = {
-            "externalId": "id",
-            "isCompleted": "is_complete",
-            "list": "parent",
-        }
-
-        for attribute in task.copy():
-            if attribute in rename_rules:
-                task[rename_rules[attribute]] = task.pop(attribute)
-
-        return TaskItem(**task)
-
-    def add(self):
-        # Successful output: Added 'yet another test' to 'test'
-        # FIXME: finish up when less tired
-        # try:
-        #     result = run_and_return(["add", self.parent, self.title])
-        # except TaskCommandException as e:
-        #     return False
-        pass
-
-    def complete(self):
-        pass
-
-    def edit(self):
-        pass
-
-
-@dataclass
-class TaskList:
-    """Reminders list object"""
-
-    name: str
-
-    def exists(self) -> bool:
-        try:
-            _ = self.tasks()
-        except ListNotFoundException:
-            return False
-
-        return True
-
-    def create(self):
-        if not self.exists():
-            run_and_return(["new-list", self.name], mode="raw")
-
-    def tasks(self) -> list[TaskItem] | None:
-        if hasattr(self, "_tasks"):
-            return self._tasks  # type: ignore
-
-        try:
-            tasks = run_and_return(["show", self.name], mode="json")
-        except TaskCommandException as e:
-            if "No reminders list matching" in e.output:
-                raise ListNotFoundException(f"List '{self.name}' not found")
-            else:
-                raise
-
-        self._tasks = [TaskItem.from_dict(t) for t in tasks]  # type: ignore[arg-type]
-        return self._tasks

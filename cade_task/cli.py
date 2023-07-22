@@ -1,14 +1,18 @@
 from pathlib import Path
-from typing import Sequence
+from typing import Optional
 
 import click
+import typer
 from devtools import debug  # noqa: F401
-from tablib import Dataset
+from rich import print
+from rich.console import Console
+from rich.table import Table
+from typing_extensions import Annotated
 
 from .lib import (
     ListNotFoundException,
     TaskCommandException,
-    # TaskItem,
+    TaskItem,
     TaskList,
     get_lists,
     list_name_from_path,
@@ -18,19 +22,16 @@ from .lib import (
 # Default
 PROJECT_DIR = Path.home() / "code"
 
+app = typer.Typer()
 
-@click.group()
-@click.option(
-    "-d",
-    "--project-dir",
-    "project_dir",
-    type=click.Path(exists=True),
-    required=False,
-    default=str(PROJECT_DIR),
-    help="Base path for automatic directory-based list resolution",
-)
-@click.pass_context
-def main(ctx, project_dir: str) -> None:
+
+@app.callback()
+def main(
+    ctx: typer.Context,
+    project_dir: str = typer.Option(
+        default=str(PROJECT_DIR), envvar="TASK_PROJECT_DIR"
+    ),
+) -> None:
     ctx.ensure_object(dict)
 
     project = list_name_from_path(project_dir)
@@ -40,15 +41,15 @@ def main(ctx, project_dir: str) -> None:
         task_list = TaskList(project)
         if not task_list.exists():
             task_list.create()
-            click.echo(f"INFO: Created list '{project}'")
+            print(f"INFO: Created list '{project}'.")
 
     ctx.obj["project"] = project
 
 
-@main.command("list")
-@click.pass_context
-@click.option("-l", "--list", "project", required=False)
-def list_(ctx, project: str | None = None) -> None:
+@app.command("list")
+def list_(
+    ctx: typer.Context, project: Annotated[Optional[str], typer.Option("--list")] = None
+) -> None:
     """
     List tasks for a given project
     """
@@ -57,37 +58,46 @@ def list_(ctx, project: str | None = None) -> None:
     if not project:
         raise click.ClickException("Unable to determine list")
 
-    display_title(project)
     try:
         task_list = TaskList(project)
         tasks = [t.title for t in task_list.tasks()]  # type: ignore
-        display_table(tasks, ["Task"], number_lines=True)
     except ListNotFoundException:
+        # FIXME: Shouldn't be looking for ListNotFoundException here
         raise click.ClickException(f"List '{project}' not found")
 
+    table = Table(title="Tasks", show_header=False)
 
-@main.command()
-@click.option("-c", "--create", "create", required=False, help="name of list to create")
-def lists(create: str) -> None:
+    for index, task in enumerate(tasks):
+        table.add_row(str(index), task)
+
+    Console().print(table)
+
+
+@app.command()
+def lists(create: Optional[str] = None) -> None:
     """
     List all Reminders.app lists
     """
     if create:
         task_list = TaskList(create)
         task_list.create()
-        click.echo(f"List '{create}' created.")
+        print(f"List '{create}' created.")
     else:
-        try:
-            display_table(get_lists(), ["List"], number_lines=False)
-        except TaskCommandException as e:
-            raise click.ClickException(e)  # type: ignore[arg-type]
+        lists = get_lists()
+        table = Table(title="Lists", show_header=False)
+
+        for list in lists:
+            table.add_row(list)
+
+        Console().print(table)
 
 
-@main.command()
-@click.pass_context
-@click.argument("task", nargs=-1)
-@click.option("-l", "--list", "project", required=False)
-def add(ctx, task: Sequence[str], project: str | None = None) -> None:
+@app.command()
+def add(
+    ctx: typer.Context,
+    title: list[str],
+    project: Annotated[Optional[str], typer.Option("--list")] = None,
+) -> None:
     """
     Add a task to a given project
     """
@@ -96,23 +106,18 @@ def add(ctx, task: Sequence[str], project: str | None = None) -> None:
     if not project:
         raise click.ClickException("Unable to determine list")
 
-    t = " ".join(str(i) for i in task)
-    if not t:
-        raise click.ClickException("No task specified, arborting")
-
-    try:
-        # task = TaskItem(t, project)
-        # task.add()
-        click.echo(run_and_return(["add", project, t])[0])
-    except TaskCommandException as e:
-        raise click.ClickException(e)  # type: ignore[arg-type]
+    title_str = " ".join(title)
+    task = TaskItem(title_str, project)
+    task.add()
+    print(f"Task '{title_str}' added to {project}.")
 
 
-@main.command()
-@click.pass_context
-@click.argument("tasks", nargs=-1)
-@click.option("-l", "--list", "project", required=False)
-def complete(ctx, tasks: Sequence[str], project: str | None = None) -> None:
+@app.command()
+def complete(
+    ctx: typer.Context,
+    tasks: list[str],
+    project: Annotated[Optional[str], typer.Option("--list")] = None,
+) -> None:
     """
     Complete task(s) for a given project
     """
@@ -122,13 +127,14 @@ def complete(ctx, tasks: Sequence[str], project: str | None = None) -> None:
     project = project or ctx.obj["project"]
 
     for t in sorted(tasks, reverse=True):
-        try:
-            click.echo(run_and_return(["complete", project, t])[0])
-        except TaskCommandException as e:
-            raise click.ClickException(e)  # type: ignore[arg-type]
+        # FIXME: setting a dummy title is inelegant
+        task = TaskItem(title="complete_task", parent=project, index=int(t))
+        task.complete()
+
+    print("Task(s) completed.")
 
 
-@main.command()
+@app.command()
 def open() -> None:
     """
     Open Reminders.app or move it to the foreground
@@ -139,29 +145,9 @@ def open() -> None:
             inject_reminder=False,
         )
     except TaskCommandException as e:
-        raise click.ClickException(e)  # type: ignore[arg-type]
-
-
-def display_table(
-    array: Sequence[str],
-    headers: list[str],
-    number_lines=False,
-    tablefmt: str = "fancy_grid",
-) -> None:
-    if len(array) == 0:
-        raise click.ClickException("No results found")
-    else:
-        data = Dataset()
-        data.headers = headers
-        for t in array:
-            data.append([t])
-
-        click.echo(data.export("cli", showindex=number_lines, tablefmt=tablefmt))
-
-
-def display_title(title: str) -> None:
-    click.secho(f"{title}", fg="green", bold=True)
+        print(f"Error: Failed to open Reminders.app\n{e}")
+        raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":
-    main()
+    app()
