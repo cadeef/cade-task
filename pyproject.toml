@@ -13,7 +13,6 @@ task = 'cade_task.cli:app'
 
 [tool.poetry.dependencies]
 python = "^3.11"
-click = "^8.1.5"
 typer = {extras = ["all"], version = "^0.9.0"}
 
 [tool.poetry.group.dev.dependencies]
@@ -29,12 +28,6 @@ coveralls = "^3.3.1"
 [build-system]
 requires = ["poetry>=1.5.1"]
 build-backend = "poetry.masonry.api"
-
-[[tool.mypy.overrides]]
-module = [
-    "click",
-]
-ignore_missing_imports = true
 
 [tool.ruff]
 # https://beta.ruff.rs/docs/rules/

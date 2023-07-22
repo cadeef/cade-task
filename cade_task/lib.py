@@ -12,11 +12,6 @@ from devtools import debug  # noqa: F401
 class TaskItem(object):
     """Reminder/task"""
 
-    # {'externalId': 'CC7A70EB-0526-47AC-A4E3-D0EA5B2CF491',
-    #   'isCompleted': False,
-    #   'list': 'test',
-    #   'priority': 0,
-    #   'title': 'this is a magic test'},
     title: str
     parent: str
     id: str | None = None

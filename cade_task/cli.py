@@ -1,7 +1,6 @@
 from pathlib import Path
 from typing import Optional
 
-import click
 import typer
 from devtools import debug  # noqa: F401
 from rich import print
@@ -41,7 +40,7 @@ def main(
         task_list = TaskList(project)
         if not task_list.exists():
             task_list.create()
-            print(f"INFO: Created list '{project}'.")
+            print(f":information_desk_person: Created list '{project}'.")
 
     ctx.obj["project"] = project
 
@@ -53,24 +52,24 @@ def list_(
     """
     List tasks for a given project
     """
-    project = project or ctx.obj["project"]
-
-    if not project:
-        raise click.ClickException("Unable to determine list")
+    project = project_set(project, ctx.obj["project"])
 
     try:
         task_list = TaskList(project)
         tasks = [t.title for t in task_list.tasks()]  # type: ignore
     except ListNotFoundException:
-        # FIXME: Shouldn't be looking for ListNotFoundException here
-        raise click.ClickException(f"List '{project}' not found")
+        print(f":x: List '{project}' not found")
+        raise typer.Exit(code=1)
 
-    table = Table(title="Tasks", show_header=False)
+    if not tasks:
+        print(":yawning_face: List empty.")
+    else:
+        table = Table(title="Tasks", show_header=False)
 
-    for index, task in enumerate(tasks):
-        table.add_row(str(index), task)
+        for index, task in enumerate(tasks):
+            table.add_row(str(index), task)
 
-    Console().print(table)
+        Console().print(table)
 
 
 @app.command()
@@ -101,11 +100,7 @@ def add(
     """
     Add a task to a given project
     """
-    project = project or ctx.obj["project"]
-
-    if not project:
-        raise click.ClickException("Unable to determine list")
-
+    project = project_set(project, ctx.obj["project"])
     title_str = " ".join(title)
     task = TaskItem(title_str, project)
     task.add()
@@ -121,10 +116,7 @@ def complete(
     """
     Complete task(s) for a given project
     """
-    if not project and not ctx.obj["project"]:
-        raise click.ClickException("Unable to determine list")
-
-    project = project or ctx.obj["project"]
+    project = project_set(project, ctx.obj["project"])
 
     for t in sorted(tasks, reverse=True):
         # FIXME: setting a dummy title is inelegant
@@ -145,8 +137,18 @@ def open() -> None:
             inject_reminder=False,
         )
     except TaskCommandException as e:
-        print(f"Error: Failed to open Reminders.app\n{e}")
+        print(f":x: Failed to open Reminders.app\n{e}")
         raise typer.Exit(code=1)
+
+
+def project_set(first: str | None, second: str) -> str:
+    project = first or second
+
+    if not project:
+        print(":exclamation: Unable to determine list")
+        raise typer.Exit(code=1)
+
+    return project
 
 
 if __name__ == "__main__":

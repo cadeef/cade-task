@@ -1,6 +1,7 @@
 import pytest
+from devtools import debug  # noqa: F401
 
-from cade_task.lib import list_name_from_path
+from cade_task.lib import TaskItem, list_name_from_path
 
 
 @pytest.mark.parametrize(
@@ -34,6 +35,26 @@ def test_taskitem():
     pass
 
 
+def test_taskitem__from_dict():
+    test_dict = {
+        "externalId": "CC7A70EB-0526-47AC-A4E3-D0EA5B2CF491",
+        "isCompleted": False,
+        "list": "test",
+        "priority": 0,
+        "title": "this is a magic test",
+    }
+    task = TaskItem.from_dict(test_dict)
+    assert task == TaskItem(
+        **{
+            "id": "CC7A70EB-0526-47AC-A4E3-D0EA5B2CF491",
+            "is_complete": False,
+            "parent": "test",
+            "priority": 0,
+            "title": "this is a magic test",
+        }
+    )
+
+
 def test_taskitem__add():
     pass
 
@@ -43,4 +64,16 @@ def test_taskitem__complete():
 
 
 def test_taskitem__edit():
+    pass
+
+
+def test_tasklist__tasks():
+    pass
+
+
+def test_tasklist__exists():
+    pass
+
+
+def test_tasklist__create():
     pass
