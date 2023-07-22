@@ -26,9 +26,21 @@ def test_get_lists():
     pass
 
 
-def test_get_tasks():
+def test_run_and_return():
     pass
 
 
-def test_run_and_return():
+def test_taskitem():
+    pass
+
+
+def test_taskitem__add():
+    pass
+
+
+def test_taskitem__complete():
+    pass
+
+
+def test_taskitem__edit():
     pass

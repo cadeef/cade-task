@@ -40,14 +40,8 @@ class TaskItem(object):
         return TaskItem(**task)
 
     def add(self):
-        run_and_return(["add", self.parent, self.title])
         # Successful output: Added 'yet another test' to 'test'
-        # FIXME: finish up when less tired
-        # try:
-        #     result = run_and_return(["add", self.parent, self.title])
-        # except TaskCommandException as e:
-        #     return False
-        # pass
+        run_and_return(["add", self.parent, self.title])
 
     def complete(self):
         run_and_return(["complete", self.parent, self.index])
