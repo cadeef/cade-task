@@ -5,7 +5,7 @@ from shutil import which
 from subprocess import CalledProcessError, run
 from typing import Any
 
-from devtools import debug  # noqa: F401
+# from devtools import debug  # noqa: F401
 
 
 @dataclass

@@ -2,7 +2,8 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-from devtools import debug  # noqa: F401
+
+# from devtools import debug  # noqa: F401
 from rich import print
 from rich.console import Console
 from rich.table import Table
@@ -142,6 +143,7 @@ def open() -> None:
 
 
 def project_set(first: str | None, second: str) -> str:
+    # This is dumb, but I wanted it out of the way without thinking more than function
     project = first or second
 
     if not project:
