@@ -1,3 +1,5 @@
+set dotenv-load
+
 # List commands
 default:
   @just --list
@@ -25,10 +27,18 @@ fix:
 shell:
   poetry shell
 
+# Publish package to PyPI
+publish:
+  # Set PyPI Token
+  -poetry config pypi-token.pypi $PYPI_API_TOKEN
+  # Build package
+  poetry build
+  # Publish package
+  poetry publish
+
 # act shortcut
 act *options:
   @act --container-daemon-socket $(docker context inspect --format '{{ "{{" }}.Endpoints.docker.Host{{ "}}" }}') {{options}}
-
 
 boof:
   # Add searchable repo (probably don't want to do this with testpypi)
