@@ -1,10 +1,85 @@
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from shutil import which
 from subprocess import CalledProcessError, run
+from typing import Any
+
+# from devtools import debug  # noqa: F401
 
 
-def list_resolve(project_dir: str, working_dir: str | None = None) -> str | None:
+@dataclass
+class TaskItem(object):
+    """Reminder/task"""
+
+    title: str
+    parent: str
+    id: str | None = None
+    is_complete: bool | None = None
+    priority: int | None = None
+    index: int | None = None
+
+    @staticmethod
+    def from_dict(task: dict[str, Any]) -> "TaskItem":
+        # Clean up naming convention
+        rename_rules = {
+            "externalId": "id",
+            "isCompleted": "is_complete",
+            "list": "parent",
+        }
+
+        for attribute in task.copy():
+            if attribute in rename_rules:
+                task[rename_rules[attribute]] = task.pop(attribute)
+
+        return TaskItem(**task)
+
+    def add(self):
+        # Successful output: Added 'yet another test' to 'test'
+        run_and_return(["add", self.parent, self.title])
+
+    def complete(self):
+        run_and_return(["complete", self.parent, self.index])
+
+    def edit(self):
+        pass
+
+
+@dataclass
+class TaskList:
+    """Reminders list object"""
+
+    name: str
+
+    def exists(self) -> bool:
+        try:
+            _ = self.tasks()
+        except ListNotFoundException:
+            return False
+
+        return True
+
+    def create(self):
+        if not self.exists():
+            run_and_return(["new-list", self.name], mode="raw")
+
+    def tasks(self) -> list[TaskItem] | None:
+        if hasattr(self, "_tasks"):
+            return self._tasks  # type: ignore
+
+        try:
+            tasks = run_and_return(["show", self.name], mode="json")
+        except TaskCommandException as e:
+            if "No reminders list matching" in e.output:
+                raise ListNotFoundException(f"List '{self.name}' not found")
+            else:
+                raise
+
+        self._tasks = [TaskItem.from_dict(t) for t in tasks]  # type: ignore[arg-type]
+        return self._tasks
+
+
+def list_name_from_path(project_dir: str, working_dir: str | None = None) -> str | None:
     if working_dir:
         cwd = Path(working_dir)
     else:
@@ -20,33 +95,16 @@ def list_resolve(project_dir: str, working_dir: str | None = None) -> str | None
     if project_dir_relative == Path("."):
         return None
 
-    try:
-        # In a nested directory of a project? (project_path/<project>/yup)
-        project = project_dir_relative.parents[1]
-    except IndexError:
-        # Must be in base project directory (project_path/<project>)
-        project = project_dir_relative
+    # Set the first element of parts as project
+    parts = project_dir_relative.parts
+    if len(parts) >= 1:
+        project = parts[0]
 
-    return str(project)
-
-
-def get_tasks(project: str) -> list[str]:
-    try:
-        tasks = run_and_return(["show", project], mode="json")
-    except TaskCommandException as e:
-        if "No reminders list matching" in e.output:
-            raise ListNotFoundException(f"List '{project}' not found")
-        else:
-            raise TaskException(e)
-
-    return tasks
+    return project
 
 
 def get_lists() -> list[str]:
-    try:
-        return run_and_return(["show-lists"], mode="json")
-    except TaskCommandException as e:
-        raise TaskException(e)
+    return run_and_return(["show-lists"], mode="json")
 
 
 def run_and_return(
@@ -94,6 +152,9 @@ class TaskCommandException(TaskException):
         self.output = e.output.decode("utf-8").rstrip()
         self.stdout = e.stdout.decode("utf-8").rstrip()
         self.stderr = e.stderr.decode("utf-8").rstrip()
+
+    def __str__(self) -> str:
+        return f"'{self.cmd}' failed ({self.returncode}):\n{self.stderr}"
 
 
 class ListNotFoundException(TaskException):

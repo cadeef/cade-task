@@ -9,16 +9,26 @@ authors = ["Cade Ekblad-Frank <cade@e-f.me>"]
 "Homepage" = "https://github.com/cadeef/cade-task"
 
 [tool.poetry.scripts]
-task = 'cade_task.cli:main'
+task = 'cade_task.cli:app'
 
 [tool.poetry.dependencies]
 python = "^3.11"
-click = "^8.1.5"
-tablib = {extras = ["cli"], version = "^3.5.0"}
+typer = {extras = ["all"], version = "^0.9.0"}
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
+pytest-cov = "^4.1.0"
 pytest = "^7.4.0"
+black = "^23.7.0"
+ruff = "^0.0.278"
+mypy = "^1.4.1"
+devtools = "^0.11.0"
+pygments = "^2.15.1"
+coveralls = "^3.3.1"
 
 [build-system]
 requires = ["poetry>=1.5.1"]
 build-backend = "poetry.masonry.api"
+
+[tool.ruff]
+# https://beta.ruff.rs/docs/rules/
+select = ["E", "F", "I"]
