@@ -39,7 +39,7 @@ class TaskItem(object):
         run_and_return(["add", self.parent, self.title])
 
     def complete(self):
-        run_and_return(["complete", self.parent, self.index])
+        run_and_return(["complete", self.parent, str(self.index)])
 
     def edit(self):
         pass
