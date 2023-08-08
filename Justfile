@@ -1,4 +1,5 @@
-set dotenv-load
+
+opornone := if `hash op &> /dev/null && echo found` == "found" { "op run --env-file .env --" } else { "" }
 
 # List commands
 default:
@@ -6,23 +7,28 @@ default:
 
 # Set up poetry/python environment
 init:
+  pre-commit install
+  pre-commit autoupdate
   poetry install
 
 # Run linters linters
 lint:
   poetry run ruff check .
-  poetry run mypy cade_task
+  poetry run mypy assemblage
   poetry run black . --check
 
 # Run pytest with supplied options
 @test *options:
-  poetry run pytest --cov=cade_task {{options}}
-  poetry run coverage html
+  poetry run pytest --cov=assemblage {{options}}
 
 # Run linters in fix mode
 fix:
   poetry run ruff check . --fix
   poetry run black .
+
+# Build docs
+docs *type:
+  poetry run {{ if type == "live" { "sphinx-autobuild" } else { "sphinx-build" } }} -b html docs docs/_build/html
 
 # Enter virtual environment
 shell:
@@ -30,12 +36,11 @@ shell:
 
 # Publish package to PyPI
 publish:
-  # Set PyPI Token
-  -poetry config pypi-token.pypi $PYPI_API_TOKEN
+  # Using PyPI token from POETRY_PYPI_TOKEN_PYPI
   # Build package
   poetry build
   # Publish package
-  poetry publish
+  {{ opornone }} poetry publish
 
 docker_socket := `docker context inspect --format '{{.Endpoints.docker.Host}}'`
 docker_status := `limactl ls --json | jq -r 'select(.name == "docker") | .status'`

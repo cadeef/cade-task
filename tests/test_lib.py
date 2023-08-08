@@ -1,8 +1,8 @@
 from os import environ
 
 import pytest
-from devtools import debug  # noqa: F401
 
+# from devtools import debug  # noqa: F401
 from cade_task.lib import (
     RunAndReturnResult,
     TaskCommandException,

@@ -2,7 +2,8 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-from devtools import debug  # noqa: F401
+
+# from devtools import debug  # noqa: F401
 from rich import print
 from rich.console import Console
 from rich.table import Table
