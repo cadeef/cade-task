@@ -16,7 +16,8 @@ lint:
 
 # Run pytest with supplied options
 @test *options:
-  poetry run pytest {{options}}
+  poetry run pytest --cov=cade_task {{options}}
+  poetry run coverage html
 
 # Run linters in fix mode
 fix:
@@ -36,10 +37,10 @@ publish:
   # Publish package
   poetry publish
 
+docker_socket := `docker context inspect --format '{{.Endpoints.docker.Host}}'`
+docker_status := `limactl ls --json | jq -r 'select(.name == "docker") | .status'`
+
 # act shortcut
 act *options:
-  @act --container-daemon-socket $(docker context inspect --format '{{ "{{" }}.Endpoints.docker.Host{{ "}}" }}') {{options}}
-
-boof:
-  # Add searchable repo (probably don't want to do this with testpypi)
-  # poetry source add testpypi https://test.pypi.org/simple/ --priority explicit
+  [[ {{docker_status}} == "Running" ]] || limactl start docker
+  act --container-daemon-socket {{docker_socket}} {{options}}

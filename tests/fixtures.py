@@ -1,0 +1,1 @@
+LISTS = ["test", "testaroo", "testaroni"]

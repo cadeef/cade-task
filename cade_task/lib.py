@@ -5,7 +5,7 @@ from shutil import which
 from subprocess import CalledProcessError, run
 from typing import Any
 
-# from devtools import debug  # noqa: F401
+from devtools import debug  # noqa: F401
 
 
 @dataclass
@@ -34,15 +34,16 @@ class TaskItem(object):
 
         return TaskItem(**task)
 
-    def add(self):
-        # Successful output: Added 'yet another test' to 'test'
-        run_and_return(["add", self.parent, self.title])
+    def add(self) -> "TaskItem":
+        result = run_and_return(["add", self.parent, self.title], mode="json")
+        task = TaskItem.from_dict(result.output)
+        return task
 
     def complete(self):
         run_and_return(["complete", self.parent, str(self.index)])
 
     def edit(self):
-        pass
+        run_and_return(["edit", self.parent, self.index, self.title], mode="raw")
 
 
 @dataclass
@@ -68,7 +69,8 @@ class TaskList:
             return self._tasks  # type: ignore
 
         try:
-            tasks = run_and_return(["show", self.name], mode="json")
+            result = run_and_return(["show", self.name], mode="json")
+            tasks = result.output
         except TaskCommandException as e:
             if "No reminders list matching" in e.output:
                 raise ListNotFoundException(f"List '{self.name}' not found")
@@ -104,12 +106,23 @@ def list_name_from_path(project_dir: str, working_dir: str | None = None) -> str
 
 
 def get_lists() -> list[str]:
-    return run_and_return(["show-lists"], mode="json")
+    result = run_and_return(["show-lists"], mode="json")
+    return result.output
+
+
+@dataclass
+class RunAndReturnResult:
+    command: str
+    # FIXME: Unions, mypy, and I aren't friends
+    # output: list[str | dict[str, Any]] | dict[str, Any]
+    output: Any
+    unmarshalled_output: bytes
+    return_code: int
 
 
 def run_and_return(
     cmd: list[str], mode: str = "raw", inject_reminder: bool = True
-) -> list[str]:
+) -> RunAndReturnResult:
     # Add reminders path to beginning of command
     if inject_reminder:
         cmd = [reminders()] + cmd
@@ -123,13 +136,20 @@ def run_and_return(
         raise TaskCommandException(e)
 
     if mode == "raw":
-        raw = result.stdout.decode("utf-8").splitlines()
-        return raw
+        marshalled_result = result.stdout.decode("utf-8").splitlines()
     elif mode == "json":
-        json_output = result.stdout.decode("utf-8").strip()
-        return json.loads(json_output)
+        result_output = result.stdout.decode("utf-8").strip()
+        marshalled_result = json.loads(result_output)
     else:
         raise TaskException("invalid mode")
+
+    result_obj = RunAndReturnResult(
+        command=" ".join(result.args),
+        output=marshalled_result,
+        unmarshalled_output=result.stdout,
+        return_code=result.returncode,
+    )
+    return result_obj
 
 
 def reminders() -> str:

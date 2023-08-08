@@ -2,8 +2,7 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-
-# from devtools import debug  # noqa: F401
+from devtools import debug  # noqa: F401
 from rich import print
 from rich.console import Console
 from rich.table import Table
@@ -104,8 +103,27 @@ def add(
     project = project_set(project, ctx.obj["project"])
     title_str = " ".join(title)
     task = TaskItem(title_str, project)
-    task.add()
-    print(f"Task '{title_str}' added to {project}.")
+    new_task = task.add()
+    print(f":white_check_mark: Task '{new_task.title}' added to {new_task.parent}.")
+
+
+@app.command()
+def edit(
+    ctx: typer.Context,
+    index: int,
+    title: list[str],
+    project: Annotated[Optional[str], typer.Option("--list")] = None,
+) -> None:
+    """
+    Add a task to a given project
+    """
+    project = project_set(project, ctx.obj["project"])
+    title_str = " ".join(title)
+    task = TaskItem(title_str, project, index=index)
+    task.edit()
+    print(
+        f":white_check_mark: Task {index} modified to '{task.title}' in {task.parent}."
+    )
 
 
 @app.command()
@@ -120,11 +138,10 @@ def complete(
     project = project_set(project, ctx.obj["project"])
 
     for t in sorted(tasks, reverse=True):
-        # FIXME: setting a dummy title is inelegant
         task = TaskItem(title="complete_task", parent=project, index=int(t))
         task.complete()
 
-    print("Task(s) completed.")
+    print(":white_check_mark: Task(s) completed.")
 
 
 @app.command()
