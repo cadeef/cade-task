@@ -8,22 +8,36 @@ from typing import Any
 # from devtools import debug  # noqa: F401
 
 
-@dataclass
 class TaskItem(object):
     """Reminder/task"""
 
-    title: str
-    parent: str
-    id: str | None = None
-    is_complete: bool | None = None
-    priority: int | None = None
-    index: int | None = None
+    def __init__(
+        self,
+        title: str | list,
+        parent: str,
+        task_id: str | None = None,
+        is_complete: bool | None = None,
+        priority: int | None = None,
+        index: int | None = None,
+        notes: str | None = None,
+    ) -> None:
+        if isinstance(title, list):
+            self.title = " ".join(title)
+        else:
+            self.title = title
+
+        self.parent = parent
+        self.task_id = task_id
+        self.is_complete = is_complete
+        self.priority = priority
+        self.index = index
+        self.notes = notes
 
     @staticmethod
     def from_dict(task: dict[str, Any]) -> "TaskItem":
         # Clean up naming convention
         rename_rules = {
-            "externalId": "id",
+            "externalId": "task_id",
             "isCompleted": "is_complete",
             "list": "parent",
         }
@@ -40,7 +54,7 @@ class TaskItem(object):
         return task
 
     def complete(self):
-        run_and_return(["complete", self.parent, str(self.index)])
+        run_and_return(["complete", self.parent, self.index])
 
     def edit(self):
         run_and_return(["edit", self.parent, self.index, self.title], mode="raw")
@@ -121,8 +135,13 @@ class RunAndReturnResult:
 
 
 def run_and_return(
-    cmd: list[str], mode: str = "raw", inject_reminder: bool = True
+    cmd: list[str | Path | int], mode: str = "raw", inject_reminder: bool = True
 ) -> RunAndReturnResult:
+    # Cast ints as str
+    for i, v in enumerate(cmd.copy()):
+        if isinstance(v, int):
+            cmd[i] = str(v)
+
     # Add reminders path to beginning of command
     if inject_reminder:
         cmd = [reminders()] + cmd
@@ -131,7 +150,7 @@ def run_and_return(
         cmd = cmd + ["--format", "json"]
 
     try:
-        result = run(cmd, capture_output=True, check=True, shell=False)
+        result = run(cmd, capture_output=True, check=True, shell=False)  # type: ignore[arg-type]  # noqa: E501
     except CalledProcessError as e:
         raise TaskCommandException(e)
 

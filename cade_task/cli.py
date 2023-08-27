@@ -102,8 +102,7 @@ def add(
     Add a task to a given project
     """
     project = project_set(project, ctx.obj["project"])
-    title_str = " ".join(title)
-    task = TaskItem(title_str, project)
+    task = TaskItem(title, project)
     new_task = task.add()
     print(f":white_check_mark: Task '{new_task.title}' added to {new_task.parent}.")
 
@@ -116,11 +115,10 @@ def edit(
     project: Annotated[Optional[str], typer.Option("--list")] = None,
 ) -> None:
     """
-    Add a task to a given project
+    Edit a task
     """
     project = project_set(project, ctx.obj["project"])
-    title_str = " ".join(title)
-    task = TaskItem(title_str, project, index=index)
+    task = TaskItem(title, project, index=index)
     task.edit()
     print(
         f":white_check_mark: Task {index} modified to '{task.title}' in {task.parent}."

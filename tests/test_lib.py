@@ -86,15 +86,18 @@ def test_taskitem__from_dict():
         "priority": 0,
         "title": "this is a magic test",
     }
-    task = TaskItem.from_dict(test_dict)
-    assert task == TaskItem(
-        **{
-            "id": "CC7A70EB-0526-47AC-A4E3-D0EA5B2CF491",
-            "is_complete": False,
-            "parent": "test",
-            "priority": 0,
-            "title": "this is a magic test",
-        }
+    task = TaskItem.from_dict(test_dict).__dict__
+    assert (
+        task
+        == TaskItem(
+            **{
+                "task_id": "CC7A70EB-0526-47AC-A4E3-D0EA5B2CF491",
+                "is_complete": False,
+                "parent": "test",
+                "priority": 0,
+                "title": "this is a magic test",
+            }
+        ).__dict__
     )
 
 
