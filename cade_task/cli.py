@@ -1,3 +1,4 @@
+import importlib.metadata
 from pathlib import Path
 from typing import Optional
 
@@ -21,8 +22,14 @@ from .lib import (
 
 # Default
 PROJECT_DIR = Path.home() / "code"
-
+APP_NAME = "cade_task"
 app = typer.Typer()
+
+
+def version_callback(value: bool):
+    if value:
+        print(importlib.metadata.version(APP_NAME))
+        raise typer.Exit()
 
 
 @app.callback()
@@ -31,6 +38,10 @@ def main(
     project_dir: str = typer.Option(
         default=str(PROJECT_DIR), envvar="TASK_PROJECT_DIR"
     ),
+    version: Annotated[
+        Optional[bool],
+        typer.Option("--version", "-V", callback=version_callback, is_eager=True),
+    ] = None,
 ) -> None:
     ctx.ensure_object(dict)
 
