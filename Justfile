@@ -14,12 +14,13 @@ init:
 # Run linters linters
 lint:
   poetry run ruff check .
-  poetry run mypy assemblage
+  poetry run mypy cade_task
   poetry run black . --check
 
 # Run pytest with supplied options
 @test *options:
-  poetry run pytest --cov=assemblage {{options}}
+  poetry run pytest --cov=cade_task {{options}}
+  poetry run coverage html
 
 # Run linters in fix mode
 fix:
