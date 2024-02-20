@@ -14,8 +14,8 @@ init:
 # Run linters linters
 lint:
   poetry run ruff check .
+  poetry run ruff format --diff | bat -l diff -p
   poetry run mypy cade_task
-  poetry run black . --check
 
 # Run pytest with supplied options
 @test *options:
@@ -24,10 +24,10 @@ lint:
 
 # Run linters in fix mode
 fix:
+  poetry run ruff format
   poetry run ruff check . --fix
-  poetry run black .
 
-# Build docs
+# Build docs (`just docs live` for auto-rebuild)
 docs *type:
   poetry run {{ if type == "live" { "sphinx-autobuild" } else { "sphinx-build" } }} -b html docs docs/_build/html
 
