@@ -13,26 +13,27 @@ init:
 
 # Run linters linters
 lint:
-  poetry run ruff check .
-  poetry run ruff format --diff | bat -l diff -p
-  poetry run mypy cade_task
+  uv run -- ruff check .
+  uv run -- ruff format --diff | bat -l diff -p
+  uv run -- mypy cade_task
 
 # Run pytest with supplied options
 @test *options:
-  poetry run pytest --cov=cade_task {{options}}
-  poetry run coverage html
+  uv run -- pytest --cov=cade_task {{options}}
+  uv run -- coverage html
 
 # Run linters in fix mode
 fix:
-  poetry run ruff format
-  poetry run ruff check . --fix
+  uv run -- ruff format
+  uv run -- ruff check . --fix
 
 # Build docs (`just docs live` for auto-rebuild)
 docs *type:
-  poetry run {{ if type == "live" { "sphinx-autobuild" } else { "sphinx-build" } }} -b html docs docs/_build/html
+  uv run -- {{ if type == "live" { "sphinx-autobuild" } else { "sphinx-build" } }} -b html docs docs/_build/html
 
 # Enter virtual environment
 shell:
+  # This is busted
   poetry shell
 
 # Publish package to PyPI
