@@ -39,9 +39,7 @@ def test_list_name_from_path(working_dir, project_dir, expected):
 def test_get_lists(mocker):
     mocker.patch(
         "cade_task.lib.run_and_return",
-        return_value=RunAndReturnResult(
-            command="", output=fixtures.LISTS, unmarshalled_output="", return_code=0
-        ),
+        return_value=RunAndReturnResult(command="", output=fixtures.LISTS, unmarshalled_output="", return_code=0),
     )
     lists = get_lists()
     assert lists == fixtures.LISTS
@@ -50,9 +48,7 @@ def test_get_lists(mocker):
 
 def test_run_and_return():
     # Test mode=raw
-    plain_result = run_and_return(
-        ["echo", "this\nis\nmultiline"], mode="raw", inject_reminder=False
-    )
+    plain_result = run_and_return(["echo", "this\nis\nmultiline"], mode="raw", inject_reminder=False)
     assert plain_result.return_code == 0
     assert len(plain_result.output) == 3
 

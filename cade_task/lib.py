@@ -134,9 +134,7 @@ class RunAndReturnResult:
     return_code: int
 
 
-def run_and_return(
-    cmd: list[str | Path | int], mode: str = "raw", inject_reminder: bool = True
-) -> RunAndReturnResult:
+def run_and_return(cmd: list[str | Path | int], mode: str = "raw", inject_reminder: bool = True) -> RunAndReturnResult:
     # Cast ints as str
     for i, v in enumerate(cmd.copy()):
         if isinstance(v, int):

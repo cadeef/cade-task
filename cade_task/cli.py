@@ -35,9 +35,7 @@ def version_callback(value: bool):
 @app.callback()
 def main(
     ctx: typer.Context,
-    project_dir: str = typer.Option(
-        default=str(PROJECT_DIR), envvar="TASK_PROJECT_DIR"
-    ),
+    project_dir: str = typer.Option(default=str(PROJECT_DIR), envvar="TASK_PROJECT_DIR"),
     version: Annotated[
         Optional[bool],
         typer.Option("--version", "-V", callback=version_callback, is_eager=True),
@@ -59,7 +57,9 @@ def main(
 
 @app.command("list")
 def list_(
-    ctx: typer.Context, project: Annotated[Optional[str], typer.Option("--list")] = None
+    ctx: typer.Context,
+    project: Annotated[Optional[str], typer.Option("--list")] = None,
+    todo: Annotated[bool, typer.Option("--todo", "-t")] = False,
 ) -> None:
     """
     List tasks for a given project
@@ -131,9 +131,7 @@ def edit(
     project = project_set(project, ctx.obj["project"])
     task = TaskItem(title, project, index=index)
     task.edit()
-    print(
-        f":white_check_mark: Task {index} modified to '{task.title}' in {task.parent}."
-    )
+    print(f":white_check_mark: Task {index} modified to '{task.title}' in {task.parent}.")
 
 
 @app.command()
@@ -147,7 +145,8 @@ def complete(
     """
     project = project_set(project, ctx.obj["project"])
 
-    for t in sorted(tasks, reverse=True):
+    # Call set to ensure there is no duplicate input. i.e. 1 1 3 4
+    for t in sorted(set(tasks), reverse=True):
         task = TaskItem(title="complete_task", parent=project, index=int(t))
         task.complete()
 
@@ -174,7 +173,7 @@ def project_set(first: str | None, second: str) -> str:
     project = first or second
 
     if not project:
-        print(":exclamation: Unable to determine list")
+        print(f":exclamation: Unable to determine list for {Path.cwd()}")
         raise typer.Exit(code=1)
 
     return project
