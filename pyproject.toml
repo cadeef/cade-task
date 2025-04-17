@@ -1,44 +1,50 @@
-[tool.poetry]
+[project]
 name = "cade-task"
 version = "0.4.2"
 description = "A loose wrapper around reminders-cli"
 readme = "README.md"
-authors = ["Cade Ekblad-Frank <cade@e-f.me>"]
+authors = [
+    { name = "Cade Ekblad-Frank", email = "cade@e-f.me" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "typer>=0.15.2",
+]
 
-[tool.poetry.urls]
+[dependency-groups]
+dev = [
+    "devtools>=0.12.2",
+    "ipython>=9.1.0",
+    "mypy>=1.15.0",
+    "pytest>=8.3.5",
+    "pytest-cov>=6.1.1",
+    "ruff>=0.11.5",
+]
+docs = [
+    "myst-parser>=4.0.1",
+    "pygments>=2.19.1",
+    "sphinx>=8.2.3",
+    "sphinx-autobuild>=2024.10.3",
+    "sphinx-autodoc-typehints>=3.1.0",
+    "sphinx-copybutton>=0.5.2",
+    "sphinx-press-theme>=0.9.1",
+]
+
+[project.urls]
 Repository = "https://github.com/cadeef/cade-task"
 Documentation = "https://task.cade.pro"
 
-[tool.poetry.scripts]
-task = 'cade_task.cli:app'
-
-[tool.poetry.dependencies]
-python = ">=3.11"
-typer = {extras = ["all"], version = "^0.9.0"}
-
-[tool.poetry.group.dev.dependencies]
-pytest-cov = ">=4.1.0"
-pytest = ">=8.0.1"
-ruff = ">=0.2.2"
-mypy = ">=1.8.0"
-devtools = ">=0.12.2"
-pygments = ">=2.17.2"
-pytest-mock = ">=3.11.1"
-
-[tool.poetry.group.docs.dependencies]
-pygments = ">=2.17.2"
-sphinx = ">=7.1.1"
-myst-parser = ">=2.0.0"
-sphinx-press-theme = ">=0.8.0"
-sphinx-copybutton = ">=0.5.2"
-sphinx-autodoc-typehints = ">=2.0.0"
-sphinx-autobuild = ">=2024.2.4"
+[project.scripts]
+task = "cade_task.cli:app"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.ruff]
 # https://docs.astral.sh/ruff/rules/
-lint.select = ["E", "F", "I"]
+lint.select = ["B", "E", "F", "I"]
+lint.ignore = [
+    "B904",  # Allow raising exceptions without from e, for HTTPException
+]
 line-length = 120
