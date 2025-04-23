@@ -44,8 +44,20 @@ build-backend = "hatchling.build"
 
 [tool.ruff]
 # https://docs.astral.sh/ruff/rules/
-lint.select = ["B", "E", "F", "I"]
+lint.select = [
+    "B",
+    "E",
+    "F",
+    "I",
+    "C4",  # List comprehensions
+    # "FIX",  # TODO, FIX, etc
+    "LOG",  # Logger bugs
+    "PT",  # Pytest
+    "RET",  # Returns
+    "SIM",  # Simplify
+    "RUF",  # Ruff-specific
+]
 lint.ignore = [
-    "B904",  # Allow raising exceptions without from e, for HTTPException
+    # "B904",  # Allow raising exceptions without from e, for HTTPException
 ]
 line-length = 120

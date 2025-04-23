@@ -3,8 +3,6 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-
-# from devtools import debug  # noqa: F401
 from rich import print
 from rich.console import Console
 from rich.table import Table
@@ -69,9 +67,9 @@ def list_(
     try:
         task_list = TaskList(project)
         tasks = [t.title for t in task_list.tasks()]  # type: ignore
-    except ListNotFoundException:
-        print(f":x: List '{project}' not found")
-        raise typer.Exit(code=1)
+    except ListNotFoundException as e:
+        print(f":x: {e}")
+        raise typer.Exit(code=1) from e
 
     if not tasks:
         print(":yawning_face: List empty.")
@@ -165,7 +163,7 @@ def open() -> None:
         )
     except TaskCommandException as e:
         print(f":x: Failed to open Reminders.app\n{e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
 
 def project_set(first: str | None, second: str) -> str:

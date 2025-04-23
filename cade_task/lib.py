@@ -5,8 +5,6 @@ from shutil import which
 from subprocess import CalledProcessError, run
 from typing import Any
 
-# from devtools import debug  # noqa: F401
-
 
 class TaskItem(object):
     """Reminder/task"""
@@ -50,8 +48,7 @@ class TaskItem(object):
 
     def add(self) -> "TaskItem":
         result = run_and_return(["add", self.parent, self.title], mode="json")
-        task = TaskItem.from_dict(result.output)
-        return task
+        return TaskItem.from_dict(result.output)
 
     def complete(self):
         run_and_return(["complete", self.parent, self.index])
@@ -87,19 +84,15 @@ class TaskList:
             tasks = result.output
         except TaskCommandException as e:
             if "No reminders list matching" in e.output:
-                raise ListNotFoundException(f"List '{self.name}' not found")
-            else:
-                raise
+                raise ListNotFoundException(f"List '{self.name}' not found") from e
+            raise
 
         self._tasks = [TaskItem.from_dict(t) for t in tasks]  # type: ignore[arg-type]
         return self._tasks
 
 
 def list_name_from_path(project_dir: str, working_dir: str | None = None) -> str | None:
-    if working_dir:
-        cwd = Path(working_dir)
-    else:
-        cwd = Path.cwd()
+    cwd = Path(working_dir) if working_dir else Path.cwd()
 
     # Is project dir part of cwd?
     try:
@@ -142,15 +135,15 @@ def run_and_return(cmd: list[str | Path | int], mode: str = "raw", inject_remind
 
     # Add reminders path to beginning of command
     if inject_reminder:
-        cmd = [reminders()] + cmd
+        cmd = [reminders(), *cmd]
 
     if mode == "json":
-        cmd = cmd + ["--format", "json"]
+        cmd = [*cmd, "--format", "json"]
 
     try:
-        result = run(cmd, capture_output=True, check=True, shell=False)  # type: ignore[arg-type]  # noqa: E501
+        result = run(cmd, capture_output=True, check=True, shell=False)  # type: ignore[arg-type]
     except CalledProcessError as e:
-        raise TaskCommandException(e)
+        raise TaskCommandException(e) from e
 
     if mode == "raw":
         marshalled_result = result.stdout.decode("utf-8").splitlines()
@@ -160,13 +153,12 @@ def run_and_return(cmd: list[str | Path | int], mode: str = "raw", inject_remind
     else:
         raise TaskException("invalid mode")
 
-    result_obj = RunAndReturnResult(
+    return RunAndReturnResult(
         command=" ".join(result.args),
         output=marshalled_result,
         unmarshalled_output=result.stdout,
         return_code=result.returncode,
     )
-    return result_obj
 
 
 def reminders() -> str:

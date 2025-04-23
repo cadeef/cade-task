@@ -1,8 +1,5 @@
-from os import environ
-
 import pytest
 
-# from devtools import debug  # noqa: F401
 from cade_task.lib import (
     RunAndReturnResult,
     TaskCommandException,
@@ -18,8 +15,8 @@ from . import fixtures
 
 
 @pytest.mark.parametrize(
-    "working_dir,project_dir,expected",
-    (
+    ("working_dir", "project_dir", "expected"),
+    [
         ("/home/bill", "/home/bill/work", None),
         ("/home/bill/work", "/home/bill/work", None),
         ("/etc/", "/home/bill/work/", None),
@@ -30,7 +27,7 @@ from . import fixtures
             "/home/bill/work",
             "my_project",
         ),
-    ),
+    ],
 )
 def test_list_name_from_path(working_dir, project_dir, expected):
     assert list_name_from_path(project_dir, working_dir) == expected
@@ -63,10 +60,10 @@ def test_run_and_return():
         run_and_return(["false"], inject_reminder=False)
 
 
-def test_reminders():
+def test_reminders(monkeypatch):
     # Reminders not in PATH
-    with pytest.raises(TaskException, match="reminders-cli not found"):
-        environ["PATH"] = ""
+    with pytest.raises(TaskException, match="reminders-cli not found"):  # noqa: PT012
+        monkeypatch.delenv("PATH", raising=False)
         reminders()
 
 
