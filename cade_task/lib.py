@@ -64,12 +64,8 @@ class TaskList:
     name: str
 
     def exists(self) -> bool:
-        try:
-            _ = self.tasks()
-        except ListNotFoundException:
-            return False
-
-        return True
+        lists = run_and_return(["show-lists"], mode="json").output
+        return self.name in lists
 
     def create(self):
         if not self.exists():
