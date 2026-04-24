@@ -1,6 +1,4 @@
 
-opornone := if `hash op &> /dev/null && echo found` == "found" { "op run --env-file .env --" } else { "" }
-
 # List commands
 default:
   @just --list
@@ -42,12 +40,13 @@ publish:
   # Build package
   poetry build
   # Publish package
-  {{ opornone }} poetry publish
+  poetry publish
 
-docker_socket := `docker context inspect --format '{{.Endpoints.docker.Host}}'`
-docker_status := `limactl ls --json | jq -r 'select(.name == "docker") | .status'`
+# Launch ipython in environment
+ipython:
+  uv run -- ipython
 
-# act shortcut
-act *options:
-  [[ {{docker_status}} == "Running" ]] || limactl start docker
-  act --container-daemon-socket {{docker_socket}} {{options}}
+# Aliases
+alias i := ipython
+alias l := lint
+alias t := test
