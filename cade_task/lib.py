@@ -1,202 +1,345 @@
+"""Core objects and helpers for interacting with macOS Reminders via reminders-cli."""
+
+from __future__ import annotations
+
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from shutil import which
 from subprocess import CalledProcessError, run
-from typing import Any
+from typing import Any, Literal
 
-from devtools import debug
+RunMode = Literal["raw", "json"]
+CommandPart = str | Path | int
+
+_RENAME_RULES: dict[str, str] = {
+    "externalId": "task_id",
+    "isCompleted": "is_complete",
+    "dueDate": "due_date",
+    "startDate": "start_date",
+    "list": "parent",
+}
 
 
-class TaskItem(object):
-    """Reminder/task"""
+@dataclass
+class TaskItem:
+    """A single reminder/task returned by or sent to reminders-cli."""
 
-    def __init__(
-        self,
-        title: str | list,
-        parent: str,
-        task_id: str | None = None,
-        is_complete: bool | None = None,
-        priority: int | None = None,
-        index: int | None = None,
-        notes: str | None = None,
-        due_date: str | None = None,
-        start_date: str | None = None,
-    ) -> None:
-        if isinstance(title, list):
-            self.title = " ".join(title)
-        else:
-            self.title = title
+    title: str | list[str]
+    parent: str
+    task_id: str | None = None
+    is_complete: bool | None = None
+    priority: int | None = None
+    index: int | None = None
+    notes: str | None = None
+    due_date: str | None = None  # TODO: Convert to datetime.
+    start_date: str | None = None  # TODO: Convert to datetime.
 
-        self.parent = parent
-        self.task_id = task_id
-        self.is_complete = is_complete
-        self.priority = priority
-        self.index = index
-        self.notes = notes
-        # TODO: Convert to datetime
-        self.due_date = due_date
-        self.start_date = start_date
+    def __post_init__(self) -> None:
+        """Normalize user-provided title input.
 
-    @staticmethod
-    def from_dict(task: dict[str, Any]) -> "TaskItem":
-        # Clean up naming convention
-        rename_rules = {
-            "externalId": "task_id",
-            "isCompleted": "is_complete",
-            "dueDate": "due_date",
-            "startDate": "start_date",
-            "list": "parent",
-        }
+        Inputs:
+            self.title: Either a string title or a list of words from the CLI.
 
-        for attribute in task.copy():
-            if attribute in rename_rules:
-                task[rename_rules[attribute]] = task.pop(attribute)
+        Outputs:
+            None. Stores the normalized title on self as a string so later
+            command calls always receive a string.
+        """
+        self.title = " ".join(self.title) if isinstance(self.title, list) else self.title
 
-        return TaskItem(**task)
+    @classmethod
+    def from_dict(cls, task: dict[str, Any]) -> "TaskItem":
+        """Create a TaskItem from reminders-cli JSON output.
+
+        Inputs:
+            task: A dictionary from reminders-cli, using its original field names.
+
+        Outputs:
+            A TaskItem with CLI field names converted to Python-friendly names.
+        """
+        renamed = {_RENAME_RULES.get(key, key): value for key, value in task.items()}
+        return cls(**renamed)
 
     def add(self) -> "TaskItem":
-        result = run_and_return(["add", self.parent, self.title], mode="json")
+        """Add this task to its parent Reminders list.
+
+        Inputs:
+            self.parent: Name of the Reminders list to add to.
+            self.title: Title of the task to create.
+
+        Outputs:
+            The created TaskItem returned by reminders-cli.
+        """
+        result = run_and_return(["add", self.parent, self._title_text()], mode="json")
         return TaskItem.from_dict(result.output)
 
-    def complete(self):
-        run_and_return(["complete", self.parent, str(self.index)])
+    def complete(self) -> None:
+        """Mark this task complete by list name and index.
 
-    def edit(self):
-        run_and_return(["edit", self.parent, self.index, self.title], mode="raw")
+        Inputs:
+            self.parent: Name of the Reminders list that contains the task.
+            self.index: Numeric task index in that list.
+
+        Outputs:
+            None. Raises TaskException if the task has no index.
+        """
+        run_and_return(["complete", self.parent, str(self._required_index())])
+
+    def edit(self) -> None:
+        """Rename this task by list name and index.
+
+        Inputs:
+            self.parent: Name of the Reminders list that contains the task.
+            self.index: Numeric task index in that list.
+            self.title: New title for the task.
+
+        Outputs:
+            None. Raises TaskException if the task has no index.
+        """
+        run_and_return(["edit", self.parent, self._required_index(), self._title_text()])
+
+    def _title_text(self) -> str:
+        """Return the task title as a guaranteed string."""
+        return " ".join(self.title) if isinstance(self.title, list) else self.title
+
+    def _required_index(self) -> int:
+        """Return the task index or fail with a clear error.
+
+        Inputs:
+            self.index: Optional task index.
+
+        Outputs:
+            The task index as an integer.
+        """
+        if self.index is None:
+            raise TaskException(f"Task '{self._title_text()}' does not have an index.")
+        return self.index
 
 
 @dataclass
 class TaskList:
-    """Reminders list object"""
+    """A Reminders list and cached access to its tasks."""
 
     name: str
+    _tasks: list[TaskItem] | None = field(default=None, init=False, repr=False)
 
     def exists(self) -> bool:
-        lists = get_lists()
-        return self.name in lists
+        """Check whether this Reminders list currently exists.
 
-    def create(self):
-        # Reminders allows multiple lists with the same title, but reminders-cli doesn't expose a unique id to interact,
-        # do our best not to create dupes.
+        Inputs:
+            self.name: Name of the Reminders list to look for.
+
+        Outputs:
+            True when a matching list exists, otherwise False.
+        """
+        return self.name in get_lists()
+
+    def create(self) -> None:
+        """Create this Reminders list if it does not already exist.
+
+        Inputs:
+            self.name: Name of the list to create.
+
+        Outputs:
+            None. Raises TaskException when the list already exists.
+        """
+        # Reminders.app allows duplicate list names, but reminders-cli does not expose
+        # stable list IDs here, so avoid creating duplicate names from this app.
         if self.exists():
             raise TaskException(f"List '{self.name}' already exists.")
-
         run_and_return(["new-list", self.name], mode="raw")
+        self.clear_cache()
 
-    def tasks(self) -> list[TaskItem] | None:
-        if hasattr(self, "_tasks"):
-            return self._tasks  # type: ignore
+    def tasks(self, *, refresh: bool = False) -> list[TaskItem]:
+        """Return tasks from this Reminders list.
+
+        Inputs:
+            refresh: When True, ignore any cached tasks and fetch fresh data.
+
+        Outputs:
+            A list of TaskItem objects.
+        """
+        if self._tasks is not None and not refresh:
+            return self._tasks
 
         try:
             result = run_and_return(["show", self.name], mode="json")
-            tasks = result.output
         except TaskCommandException as e:
             if "No reminders list matching" in e.output:
                 raise ListNotFoundException(f"List '{self.name}' not found") from e
             raise
 
-        self._tasks = [TaskItem.from_dict(t) for t in tasks]
+        self._tasks = [TaskItem.from_dict(task) for task in result.output]
         return self._tasks
 
+    def clear_cache(self) -> None:
+        """Discard cached tasks for this list.
 
-def list_name_from_path(project_dir: str, working_dir: str | None = None) -> str | None:
-    cwd = Path(working_dir) if working_dir else Path.cwd()
+        Inputs:
+            None.
 
-    # Is project dir part of cwd?
+        Outputs:
+            None. The next tasks() call will fetch fresh data.
+        """
+        self._tasks = None
+
+
+def list_name_from_path(project_dir: str | Path, working_dir: str | Path | None = None) -> str | None:
+    """Infer the Reminders list name from the current project path.
+
+    Inputs:
+        project_dir: Root directory where project folders live.
+        working_dir: Directory to inspect. Defaults to the current working directory.
+
+    Outputs:
+        The first path component under project_dir, or None when outside project_dir.
+    """
+    project_root = Path(project_dir).expanduser().resolve()
+    cwd = Path(working_dir).expanduser().resolve() if working_dir else Path.cwd().resolve()
+
     try:
-        project_dir_relative = cwd.relative_to(project_dir)
+        relative = cwd.relative_to(project_root)
     except ValueError:
         return None
 
-    # Project_dir and workding dir are the same? (project_path)
-    if project_dir_relative == Path("."):
-        return None
-
-    # Set the first element of parts as project
-    parts = project_dir_relative.parts
-    if len(parts) >= 1:
-        project = parts[0]
-
-    return project
+    return relative.parts[0] if relative.parts else None
 
 
 def get_lists() -> list[str]:
+    """Fetch all Reminders list names.
+
+    Inputs:
+        None.
+
+    Outputs:
+        A list of Reminders list names returned by reminders-cli.
+    """
     result = run_and_return(["show-lists"], mode="json")
     return result.output
 
 
-@dataclass
+def reminders() -> str:
+    """Find the reminders-cli executable.
+
+    Inputs:
+        None.
+
+    Outputs:
+        Absolute path to the reminders executable.
+    """
+    path = which("reminders")
+    if not path:
+        raise TaskException("'reminders' from reminders-cli not found in PATH.")
+    return path
+
+
+@dataclass(slots=True)
 class RunAndReturnResult:
-    __slots__ = ["command", "output", "return_code", "unmarshalled_output"]
+    """Structured result from a command executed by run_and_return."""
+
     command: str
-    # FIXME: Unions, mypy, and I aren't friends
-    # output: list[str | dict[str, Any]] | dict[str, Any]
     output: Any
     unmarshalled_output: bytes
     return_code: int
 
 
-def run_and_return(cmd: list[str | Path | int], mode: str = "raw", inject_reminder: bool = True) -> RunAndReturnResult:
-    # Cast ints as str
-    for i, v in enumerate(cmd.copy()):
-        if isinstance(v, int):
-            cmd[i] = str(v)
+def run_and_return(
+    cmd: list[CommandPart],
+    mode: RunMode = "raw",
+    inject_reminder: bool = True,
+) -> RunAndReturnResult:
+    """Run a command and parse its output consistently.
 
-    # Add reminders path to beginning of command
+    Inputs:
+        cmd: Command arguments. By default these are appended after reminders-cli.
+        mode: "raw" returns stdout lines; "json" parses stdout as JSON.
+        inject_reminder: When True, prepend the reminders-cli executable path.
+
+    Outputs:
+        RunAndReturnResult containing command text, parsed output, raw stdout bytes,
+        and return code.
+    """
+    args = [str(part) for part in cmd]
+
     if inject_reminder:
-        cmd = [reminders(), *cmd]
+        args = [reminders(), *args]
 
     if mode == "json":
-        cmd = [*cmd, "--format", "json"]
-
-    debug(cmd)
+        args.extend(["--format", "json"])
 
     try:
-        result = run(cmd, capture_output=True, check=True, shell=False)  # type: ignore[arg-type]
+        result = run(args, capture_output=True, check=True, shell=False)
     except CalledProcessError as e:
         raise TaskCommandException(e) from e
 
+    stdout = result.stdout.decode()
     if mode == "raw":
-        marshalled_result = result.stdout.decode("utf-8").splitlines()
+        output = stdout.splitlines()
     elif mode == "json":
-        result_output = result.stdout.decode("utf-8").strip()
-        marshalled_result = json.loads(result_output)
+        try:
+            output = json.loads(stdout.strip())
+        except json.JSONDecodeError as e:
+            raise TaskException(f"Command returned invalid JSON: {' '.join(args)}") from e
     else:
-        raise TaskException("invalid mode")
+        # This is mostly defensive because the RunMode type already restricts callers.
+        raise TaskException(f"Invalid mode: {mode!r}")
 
     return RunAndReturnResult(
-        command=" ".join(result.args),
-        output=marshalled_result,
+        command=" ".join(args),
+        output=output,
         unmarshalled_output=result.stdout,
         return_code=result.returncode,
     )
 
 
-def reminders() -> str:
-    reminders = which("reminders")
-    if not reminders:
-        raise TaskException("'reminders' from reminders-cli not found in PATH.")
-    return reminders
-
-
 class TaskException(Exception):
-    """Base Task Exception"""
+    """Base exception for predictable app-level failures.
+
+    Inputs:
+        Standard Exception arguments.
+
+    Outputs:
+        An exception instance that callers can catch for task app errors.
+    """
 
 
 class TaskCommandException(TaskException):
-    """Command failure Exception"""
+    """Error raised when an external command returns a non-zero exit code."""
 
     def __init__(self, e: CalledProcessError) -> None:
+        """Capture useful details from a failed subprocess call.
+
+        Inputs:
+            e: The CalledProcessError raised by subprocess.run.
+
+        Outputs:
+            None. Stores return code, command, stdout, and stderr on the instance.
+        """
         self.returncode = e.returncode
-        self.cmd = " ".join(e.cmd)
-        self.output = e.output.decode("utf-8").rstrip()
-        self.stdout = e.stdout.decode("utf-8").rstrip()
-        self.stderr = e.stderr.decode("utf-8").rstrip()
+        self.cmd = " ".join(str(part) for part in e.cmd)
+        self.output = (e.output or b"").decode().strip()
+        self.stdout = (e.stdout or b"").decode().strip()
+        self.stderr = (e.stderr or b"").decode().strip()
 
     def __str__(self) -> str:
-        return f"'{self.cmd}' failed ({self.returncode}):\n{self.stderr}"
+        """Format the command failure for CLI display.
+
+        Inputs:
+            None.
+
+        Outputs:
+            A readable error message string.
+        """
+        details = self.stderr or self.stdout or self.output or "No output captured."
+        return f"'{self.cmd}' failed ({self.returncode}):\n{details}"
 
 
 class ListNotFoundException(TaskException):
-    """Task exception for when a list is not found"""
+    """Error raised when a requested Reminders list cannot be found.
+
+    Inputs:
+        Standard Exception arguments.
+
+    Outputs:
+        An exception instance for missing-list failures.
+    """

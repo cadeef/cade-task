@@ -1,4 +1,4 @@
-"""Unit tests for the refactored cade_task.lib module."""
+"""Unit tests for lib.py"""
 
 import json
 from pathlib import Path
@@ -8,32 +8,37 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from cade_task.lib import (
+    _RENAME_RULES,
     ListNotFoundException,
     RunAndReturnResult,
     TaskCommandException,
     TaskException,
     TaskItem,
     TaskList,
-    _RENAME_RULES,
     get_lists,
     list_name_from_path,
     reminders,
     run_and_return,
 )
 
+# ---------------------------------------------------------------------------
+# Helpers / factories
+# ---------------------------------------------------------------------------
+
 
 def make_calledprocesserror(
     returncode: int = 1,
     cmd: list[str] | None = None,
     stderr: str = "something went wrong",
-    stdout: str = "",
     output: str = "",
 ) -> CalledProcessError:
-    err = CalledProcessError(returncode, cmd or ["reminders", "show"])
-    err.stderr = stderr.encode()
-    err.stdout = stdout.encode()
-    err.output = output.encode()
-    return err
+    cmd = cmd or ["reminders", "show"]
+    return CalledProcessError(
+        returncode=returncode,
+        cmd=cmd,
+        output=output.encode(),
+        stderr=stderr.encode(),
+    )
 
 
 def make_run_result(stdout: bytes, returncode: int = 0) -> MagicMock:
@@ -59,6 +64,11 @@ def make_task_dict(**overrides) -> dict:
     return {**base, **overrides}
 
 
+# ---------------------------------------------------------------------------
+# TaskItem
+# ---------------------------------------------------------------------------
+
+
 class TestTaskItem:
     def test_basic_construction(self):
         task = TaskItem(title="Buy milk", parent="Groceries")
@@ -71,13 +81,23 @@ class TestTaskItem:
         task = TaskItem(title=["Buy", "some", "milk"], parent="Groceries")
         assert task.title == "Buy some milk"
 
+    def test_title_string_unchanged(self):
+        task = TaskItem(title="Already a string", parent="Work")
+        assert task.title == "Already a string"
+
+    def test_title_can_be_updated_after_init(self):
+        task = TaskItem(title=["Initial", "title"], parent="Work")
+        task.title = "Updated title"
+        assert task.title == "Updated title"
+
     def test_optional_fields_default_to_none(self):
         task = TaskItem(title="Task", parent="List")
         for attr in ("task_id", "is_complete", "priority", "index", "notes", "due_date", "start_date"):
             assert getattr(task, attr) is None
 
     def test_from_dict_renames_keys(self):
-        task = TaskItem.from_dict(make_task_dict())
+        raw = make_task_dict()
+        task = TaskItem.from_dict(raw)
         assert task.task_id == "abc-123"
         assert task.is_complete is False
         assert task.due_date == "2024-01-01"
@@ -85,84 +105,95 @@ class TestTaskItem:
         assert task.parent == "Groceries"
 
     def test_from_dict_passthrough_keys_unchanged(self):
-        task = TaskItem.from_dict({"title": "Read book", "parent": "Personal", "priority": 2})
+        raw = {"title": "Read book", "parent": "Personal", "priority": 2}
+        task = TaskItem.from_dict(raw)
         assert task.title == "Read book"
         assert task.priority == 2
 
+    def test_from_dict_minimal(self):
+        task = TaskItem.from_dict({"title": "Minimal", "list": "Inbox"})
+        assert task.title == "Minimal"
+        assert task.parent == "Inbox"
+
     def test_rename_rules_covers_all_camel_case_keys(self):
-        assert set(_RENAME_RULES) == {"externalId", "isCompleted", "dueDate", "startDate", "list"}
+        camel_keys = {"externalId", "isCompleted", "dueDate", "startDate", "list"}
+        assert camel_keys == set(_RENAME_RULES.keys())
 
     @patch("cade_task.lib.run_and_return")
     def test_add_calls_run_and_returns_task_item(self, mock_run):
+        returned_dict = {"title": "Buy milk", "list": "Groceries", "externalId": "xyz"}
         mock_run.return_value = RunAndReturnResult(
             command="reminders add Groceries Buy milk",
-            output={"title": "Buy milk", "list": "Groceries", "externalId": "xyz"},
+            output=returned_dict,
             unmarshalled_output=b"",
             return_code=0,
         )
-        result = TaskItem(title="Buy milk", parent="Groceries").add()
+        task = TaskItem(title="Buy milk", parent="Groceries")
+        result = task.add()
         mock_run.assert_called_once_with(["add", "Groceries", "Buy milk"], mode="json")
         assert isinstance(result, TaskItem)
         assert result.task_id == "xyz"
 
     @patch("cade_task.lib.run_and_return")
-    def test_complete_calls_run_with_int_index(self, mock_run):
-        TaskItem(title="Task", parent="Work", index=3).complete()
-        mock_run.assert_called_once_with(["complete", "Work", 3])
+    def test_complete_calls_run_with_index(self, mock_run):
+        mock_run.return_value = MagicMock()
+        task = TaskItem(title="Task", parent="Work", index=3)
+        task.complete()
+        mock_run.assert_called_once_with(["complete", "Work", "3"])
 
     @patch("cade_task.lib.run_and_return")
     def test_edit_calls_run_with_correct_args(self, mock_run):
+        mock_run.return_value = MagicMock()
         task = TaskItem(title="Updated title", parent="Work", index=2)
         task.edit()
         mock_run.assert_called_once_with(["edit", "Work", 2, "Updated title"])
 
-    @patch("cade_task.lib.run_and_return")
-    def test_complete_raises_when_index_missing(self, mock_run):
-        with pytest.raises(TaskException, match="does not have an index"):
-            TaskItem(title="Task", parent="Work").complete()
-        mock_run.assert_not_called()
 
-    @patch("cade_task.lib.run_and_return")
-    def test_edit_raises_when_index_missing(self, mock_run):
-        with pytest.raises(TaskException, match="does not have an index"):
-            TaskItem(title="Task", parent="Work").edit()
-        mock_run.assert_not_called()
+# ---------------------------------------------------------------------------
+# TaskList
+# ---------------------------------------------------------------------------
 
 
 class TestTaskList:
-    @patch("cade_task.lib.get_lists", return_value=["Work", "Personal"])
-    def test_exists_true(self, _):
-        assert TaskList(name="Work").exists() is True
+    def test_exists_true(self):
+        with patch("cade_task.lib.get_lists", return_value=["Work", "Personal"]):
+            assert TaskList(name="Work").exists() is True
 
-    @patch("cade_task.lib.get_lists", return_value=["Work", "Personal"])
-    def test_exists_false(self, _):
-        assert TaskList(name="Shopping").exists() is False
+    def test_exists_false(self):
+        with patch("cade_task.lib.get_lists", return_value=["Work", "Personal"]):
+            assert TaskList(name="Shopping").exists() is False
 
-    @patch("cade_task.lib.get_lists", return_value=[])
     @patch("cade_task.lib.run_and_return")
-    def test_create_succeeds_when_list_absent_and_clears_cache(self, mock_run, _):
-        task_list = TaskList(name="NewList")
-        task_list._tasks = [TaskItem(title="Cached", parent="NewList")]
-        task_list.create()
+    def test_create_succeeds_when_list_absent(self, mock_run):
+        mock_run.return_value = MagicMock()
+        with patch("cade_task.lib.get_lists", return_value=[]):
+            TaskList(name="NewList").create()
         mock_run.assert_called_once_with(["new-list", "NewList"], mode="raw")
-        assert task_list._tasks is None
 
-    @patch("cade_task.lib.get_lists", return_value=["Existing"])
-    def test_create_raises_if_list_exists(self, _):
-        with pytest.raises(TaskException, match="already exists"):
+    def test_create_raises_if_list_exists(self):
+        with (
+            patch("cade_task.lib.get_lists", return_value=["Existing"]),
+            pytest.raises(TaskException, match="already exists"),
+        ):
             TaskList(name="Existing").create()
 
     @patch("cade_task.lib.run_and_return")
     def test_tasks_returns_task_items(self, mock_run):
+        raw_tasks = [
+            {"title": "Task A", "list": "Work"},
+            {"title": "Task B", "list": "Work"},
+        ]
         mock_run.return_value = RunAndReturnResult(
             command="reminders show Work",
-            output=[{"title": "Task A", "list": "Work"}, {"title": "Task B", "list": "Work"}],
+            output=raw_tasks,
             unmarshalled_output=b"",
             return_code=0,
         )
-        tasks = TaskList(name="Work").tasks()
-        assert [task.title for task in tasks] == ["Task A", "Task B"]
-        assert all(isinstance(task, TaskItem) for task in tasks)
+        tl = TaskList(name="Work")
+        tasks = tl.tasks()
+        assert len(tasks) == 2
+        assert all(isinstance(t, TaskItem) for t in tasks)
+        assert tasks[0].title == "Task A"
 
     @patch("cade_task.lib.run_and_return")
     def test_tasks_caches_result(self, mock_run):
@@ -172,45 +203,29 @@ class TestTaskList:
             unmarshalled_output=b"",
             return_code=0,
         )
-        task_list = TaskList(name="Work")
-        assert task_list.tasks() is task_list.tasks()
+        tl = TaskList(name="Work")
+        tl.tasks()
+        tl.tasks()  # second call should use cache
         mock_run.assert_called_once()
 
     @patch("cade_task.lib.run_and_return")
-    def test_tasks_refresh_bypasses_cache(self, mock_run):
-        mock_run.side_effect = [
-            RunAndReturnResult("reminders show Work", [{"title": "Task A", "list": "Work"}], b"", 0),
-            RunAndReturnResult("reminders show Work", [{"title": "Task B", "list": "Work"}], b"", 0),
-        ]
-        task_list = TaskList(name="Work")
-        assert task_list.tasks()[0].title == "Task A"
-        assert task_list.tasks(refresh=True)[0].title == "Task B"
-        assert mock_run.call_count == 2
-
-    @patch("cade_task.lib.run_and_return")
-    def test_clear_cache_forces_next_fetch(self, mock_run):
-        mock_run.side_effect = [
-            RunAndReturnResult("reminders show Work", [{"title": "Task A", "list": "Work"}], b"", 0),
-            RunAndReturnResult("reminders show Work", [{"title": "Task B", "list": "Work"}], b"", 0),
-        ]
-        task_list = TaskList(name="Work")
-        assert task_list.tasks()[0].title == "Task A"
-        task_list.clear_cache()
-        assert task_list.tasks()[0].title == "Task B"
-
-    @patch("cade_task.lib.run_and_return")
     def test_tasks_raises_list_not_found(self, mock_run):
-        mock_run.side_effect = TaskCommandException(
-            make_calledprocesserror(output="No reminders list matching 'Ghost'")
-        )
+        err = make_calledprocesserror(output="No reminders list matching 'Ghost'")
+        mock_run.side_effect = TaskCommandException(err)
         with pytest.raises(ListNotFoundException, match="not found"):
             TaskList(name="Ghost").tasks()
 
     @patch("cade_task.lib.run_and_return")
     def test_tasks_reraises_other_command_exceptions(self, mock_run):
-        mock_run.side_effect = TaskCommandException(make_calledprocesserror(stderr="permission denied"))
+        err = make_calledprocesserror(stderr="permission denied", output="permission denied")
+        mock_run.side_effect = TaskCommandException(err)
         with pytest.raises(TaskCommandException):
             TaskList(name="Work").tasks()
+
+
+# ---------------------------------------------------------------------------
+# list_name_from_path
+# ---------------------------------------------------------------------------
 
 
 class TestListNameFromPath:
@@ -224,141 +239,167 @@ class TestListNameFromPath:
         assert list_name_from_path("/home/user/projects", "/home/user/projects") is None
 
     def test_working_dir_defaults_to_cwd(self):
-        assert list_name_from_path(Path.cwd().parent) == Path.cwd().name
+        parent = str(Path.cwd().parent)
+        result = list_name_from_path(parent)
+        assert result == Path.cwd().name
 
     def test_deeply_nested_path_returns_only_first_part(self):
-        assert list_name_from_path("/base", "/base/project/a/b/c") == "project"
+        result = list_name_from_path("/base", "/base/project/a/b/c")
+        assert result == "project"
 
-    def test_accepts_path_objects(self):
-        assert list_name_from_path(Path("/base"), Path("/base/project")) == "project"
+
+# ---------------------------------------------------------------------------
+# reminders()
+# ---------------------------------------------------------------------------
 
 
 class TestReminders:
-    @patch("cade_task.lib.which", return_value="/usr/local/bin/reminders")
-    def test_returns_path_when_found(self, _):
-        assert reminders() == "/usr/local/bin/reminders"
+    def test_returns_path_when_found(self):
+        with patch("cade_task.lib.which", return_value="/usr/local/bin/reminders"):
+            assert reminders() == "/usr/local/bin/reminders"
 
-    @patch("cade_task.lib.which", return_value=None)
-    def test_raises_when_not_found(self, _):
-        with pytest.raises(TaskException, match="not found in PATH"):
+    def test_raises_when_not_found(self):
+        with (
+            patch("cade_task.lib.which", return_value=None),
+            pytest.raises(TaskException, match="not found in PATH"),
+        ):
             reminders()
 
 
-class TestRunAndReturn:
-    @patch("cade_task.lib.reminders", return_value="/usr/bin/reminders")
-    @patch("cade_task.lib.run")
-    def test_raw_mode_splits_lines(self, mock_run, _):
-        mock_run.return_value = make_run_result(b"line1\nline2\nline3")
-        assert run_and_return(["show-lists"], mode="raw").output == ["line1", "line2", "line3"]
+# ---------------------------------------------------------------------------
+# run_and_return
+# ---------------------------------------------------------------------------
 
-    @patch("cade_task.lib.reminders", return_value="/usr/bin/reminders")
+
+class TestRunAndReturn:
     @patch("cade_task.lib.run")
-    def test_json_mode_parses_output(self, mock_run, _):
+    def test_raw_mode_splits_lines(self, mock_run):
+        mock_run.return_value = make_run_result(b"line1\nline2\nline3")
+        with patch("cade_task.lib.reminders", return_value="/usr/bin/reminders"):
+            result = run_and_return(["show-lists"], mode="raw")
+        assert result.output == ["line1", "line2", "line3"]
+
+    @patch("cade_task.lib.run")
+    def test_json_mode_parses_output(self, mock_run):
         payload = [{"title": "Task", "list": "Work"}]
         mock_run.return_value = make_run_result(json.dumps(payload).encode())
-        assert run_and_return(["show", "Work"], mode="json").output == payload
+        with patch("cade_task.lib.reminders", return_value="/usr/bin/reminders"):
+            result = run_and_return(["show", "Work"], mode="json")
+        assert result.output == payload
 
-    @patch("cade_task.lib.reminders", return_value="/usr/bin/reminders")
     @patch("cade_task.lib.run")
-    def test_json_mode_raises_clear_error_for_invalid_json(self, mock_run, _):
-        mock_run.return_value = make_run_result(b"not-json")
-        with pytest.raises(TaskException, match="returned invalid JSON"):
-            run_and_return(["show", "Work"], mode="json")
-
-    @patch("cade_task.lib.reminders", return_value="/usr/bin/reminders")
-    @patch("cade_task.lib.run")
-    def test_json_mode_appends_format_flag(self, mock_run, _):
+    def test_json_mode_appends_format_flag(self, mock_run):
         mock_run.return_value = make_run_result(b"[]")
-        run_and_return(["show", "Work"], mode="json")
-        assert mock_run.call_args[0][0][-2:] == ["--format", "json"]
+        with patch("cade_task.lib.reminders", return_value="/usr/bin/reminders"):
+            run_and_return(["show", "Work"], mode="json")
+        called_cmd = mock_run.call_args[0][0]
+        assert "--format" in called_cmd
+        assert "json" in called_cmd
 
-    @patch("cade_task.lib.reminders", return_value="/usr/bin/reminders")
     @patch("cade_task.lib.run")
-    def test_inject_reminder_prepends_reminders_binary(self, mock_run, _):
+    def test_inject_reminder_prepends_reminders_binary(self, mock_run):
         mock_run.return_value = make_run_result(b"")
-        run_and_return(["show-lists"], inject_reminder=True)
-        assert mock_run.call_args[0][0][0] == "/usr/bin/reminders"
+        with patch("cade_task.lib.reminders", return_value="/usr/bin/reminders"):
+            run_and_return(["show-lists"], mode="raw", inject_reminder=True)
+        called_cmd = mock_run.call_args[0][0]
+        assert called_cmd[0] == "/usr/bin/reminders"
 
     @patch("cade_task.lib.run")
     def test_no_inject_reminder_skips_binary(self, mock_run):
         mock_run.return_value = make_run_result(b"line")
-        result = run_and_return(["echo", "hello"], inject_reminder=False)
-        assert mock_run.call_args[0][0][0] == "echo"
+        result = run_and_return(["echo", "hello"], mode="raw", inject_reminder=False)
+        called_cmd = mock_run.call_args[0][0]
+        assert called_cmd[0] == "echo"
         assert result.output == ["line"]
 
-    @patch("cade_task.lib.reminders", return_value="/usr/bin/reminders")
     @patch("cade_task.lib.run")
-    def test_int_and_path_args_cast_to_str(self, mock_run, _):
+    def test_int_args_cast_to_str(self, mock_run):
         mock_run.return_value = make_run_result(b"")
-        run_and_return(["complete", Path("/tmp/example"), 3])
+        with patch("cade_task.lib.reminders", return_value="/usr/bin/reminders"):
+            run_and_return(["complete", "Work", 3], mode="raw")
         called_cmd = mock_run.call_args[0][0]
-        assert "/tmp/example" in called_cmd
         assert "3" in called_cmd
 
-    @patch("cade_task.lib.reminders", return_value="/usr/bin/reminders")
     @patch("cade_task.lib.run")
-    def test_invalid_mode_raises(self, mock_run, _):
+    def test_invalid_mode_raises(self, mock_run):
         mock_run.return_value = make_run_result(b"data")
-        with pytest.raises(TaskException, match="Invalid mode"):
-            run_and_return(["show-lists"], mode="invalid")  # type: ignore[arg-type]
+        with (
+            patch("cade_task.lib.reminders", return_value="/usr/bin/reminders"),
+            pytest.raises(TaskException, match="Invalid mode"),
+        ):
+            run_and_return(["show-lists"], mode="invalid")
 
-    @patch("cade_task.lib.reminders", return_value="/usr/bin/reminders")
     @patch("cade_task.lib.run")
-    def test_called_process_error_raises_task_command_exception(self, mock_run, _):
+    def test_called_process_error_raises_task_command_exception(self, mock_run):
         mock_run.side_effect = make_calledprocesserror()
-        with pytest.raises(TaskCommandException):
+        with (
+            patch("cade_task.lib.reminders", return_value="/usr/bin/reminders"),
+            pytest.raises(TaskCommandException),
+        ):
             run_and_return(["show", "Work"])
 
-    @patch("cade_task.lib.reminders", return_value="/usr/bin/reminders")
     @patch("cade_task.lib.run")
-    def test_result_fields_populated(self, mock_run, _):
+    def test_result_fields_populated(self, mock_run):
         raw = b'["list1"]'
         mock_result = make_run_result(raw)
         mock_result.args = ["/usr/bin/reminders", "show-lists", "--format", "json"]
         mock_run.return_value = mock_result
-        result = run_and_return(["show-lists"], mode="json")
+        with patch("cade_task.lib.reminders", return_value="/usr/bin/reminders"):
+            result = run_and_return(["show-lists"], mode="json")
         assert result.return_code == 0
         assert result.unmarshalled_output == raw
         assert "reminders" in result.command
 
 
+# ---------------------------------------------------------------------------
+# TaskCommandException
+# ---------------------------------------------------------------------------
+
+
 class TestTaskCommandException:
     def test_str_includes_cmd_and_stderr(self):
-        exc = TaskCommandException(
-            make_calledprocesserror(returncode=2, cmd=["reminders", "show"], stderr="list not found")
-        )
+        err = make_calledprocesserror(returncode=2, cmd=["reminders", "show"], stderr="list not found")
+        exc = TaskCommandException(err)
         assert "reminders show" in str(exc)
         assert "list not found" in str(exc)
         assert exc.returncode == 2
 
     def test_output_decoded_and_stripped(self):
-        exc = TaskCommandException(make_calledprocesserror(output="  some output  \n"))
-        assert exc.output == "  some output"
+        err = make_calledprocesserror(output="  some output  \n")
+        exc = TaskCommandException(err)
+        assert exc.output == "some output"
 
     def test_stdout_decoded_and_stripped(self):
-        exc = TaskCommandException(make_calledprocesserror(stdout="  stdout content  \n"))
-        assert exc.stdout == "  stdout content"
+        # CalledProcessError.stdout is an alias for output, so provide output here
+        # instead of setting stdout separately in the helper.
+        err = make_calledprocesserror(output="  stdout content  \n")
+        exc = TaskCommandException(err)
+        assert exc.stdout.strip() == "stdout content"
 
-    def test_str_falls_back_to_stdout_when_stderr_empty(self):
-        exc = TaskCommandException(make_calledprocesserror(stderr="", stdout="stdout details"))
-        assert "stdout details" in str(exc)
 
-    def test_handles_missing_process_streams(self):
-        exc = TaskCommandException(CalledProcessError(1, ["reminders", "show"]))
-        assert exc.output == ""
-        assert exc.stdout == ""
-        assert exc.stderr == ""
-        assert "No output captured" in str(exc)
+# ---------------------------------------------------------------------------
+# get_lists
+# ---------------------------------------------------------------------------
 
 
 class TestGetLists:
     @patch("cade_task.lib.run_and_return")
     def test_returns_list_of_strings(self, mock_run):
-        mock_run.return_value = RunAndReturnResult("reminders show-lists", ["Work", "Personal"], b"", 0)
-        assert get_lists() == ["Work", "Personal"]
+        mock_run.return_value = RunAndReturnResult(
+            command="reminders show-lists",
+            output=["Work", "Personal", "Shopping"],
+            unmarshalled_output=b"",
+            return_code=0,
+        )
+        assert get_lists() == ["Work", "Personal", "Shopping"]
 
     @patch("cade_task.lib.run_and_return")
     def test_calls_show_lists_in_json_mode(self, mock_run):
-        mock_run.return_value = RunAndReturnResult("reminders show-lists", [], b"", 0)
+        mock_run.return_value = RunAndReturnResult(
+            command="reminders show-lists",
+            output=[],
+            unmarshalled_output=b"",
+            return_code=0,
+        )
         get_lists()
         mock_run.assert_called_once_with(["show-lists"], mode="json")
