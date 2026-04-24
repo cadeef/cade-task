@@ -5,6 +5,8 @@ from shutil import which
 from subprocess import CalledProcessError, run
 from typing import Any
 
+from devtools import debug
+
 
 class TaskItem(object):
     """Reminder/task"""
@@ -18,6 +20,8 @@ class TaskItem(object):
         priority: int | None = None,
         index: int | None = None,
         notes: str | None = None,
+        due_date: str | None = None,
+        start_date: str | None = None,
     ) -> None:
         if isinstance(title, list):
             self.title = " ".join(title)
@@ -30,6 +34,9 @@ class TaskItem(object):
         self.priority = priority
         self.index = index
         self.notes = notes
+        # TODO: Convert to datetime
+        self.due_date = due_date
+        self.start_date = start_date
 
     @staticmethod
     def from_dict(task: dict[str, Any]) -> "TaskItem":
@@ -37,6 +44,8 @@ class TaskItem(object):
         rename_rules = {
             "externalId": "task_id",
             "isCompleted": "is_complete",
+            "dueDate": "due_date",
+            "startDate": "start_date",
             "list": "parent",
         }
 
@@ -51,7 +60,7 @@ class TaskItem(object):
         return TaskItem.from_dict(result.output)
 
     def complete(self):
-        run_and_return(["complete", self.parent, self.index])
+        run_and_return(["complete", self.parent, str(self.index)])
 
     def edit(self):
         run_and_return(["edit", self.parent, self.index, self.title], mode="raw")
@@ -64,12 +73,16 @@ class TaskList:
     name: str
 
     def exists(self) -> bool:
-        lists = run_and_return(["show-lists"], mode="json").output
+        lists = get_lists()
         return self.name in lists
 
     def create(self):
-        if not self.exists():
-            run_and_return(["new-list", self.name], mode="raw")
+        # Reminders allows multiple lists with the same title, but reminders-cli doesn't expose a unique id to interact,
+        # do our best not to create dupes.
+        if self.exists():
+            raise TaskException(f"List '{self.name}' already exists.")
+
+        run_and_return(["new-list", self.name], mode="raw")
 
     def tasks(self) -> list[TaskItem] | None:
         if hasattr(self, "_tasks"):
@@ -83,7 +96,7 @@ class TaskList:
                 raise ListNotFoundException(f"List '{self.name}' not found") from e
             raise
 
-        self._tasks = [TaskItem.from_dict(t) for t in tasks]  # type: ignore[arg-type]
+        self._tasks = [TaskItem.from_dict(t) for t in tasks]
         return self._tasks
 
 
@@ -115,6 +128,7 @@ def get_lists() -> list[str]:
 
 @dataclass
 class RunAndReturnResult:
+    __slots__ = ["command", "output", "return_code", "unmarshalled_output"]
     command: str
     # FIXME: Unions, mypy, and I aren't friends
     # output: list[str | dict[str, Any]] | dict[str, Any]
@@ -135,6 +149,8 @@ def run_and_return(cmd: list[str | Path | int], mode: str = "raw", inject_remind
 
     if mode == "json":
         cmd = [*cmd, "--format", "json"]
+
+    debug(cmd)
 
     try:
         result = run(cmd, capture_output=True, check=True, shell=False)  # type: ignore[arg-type]
@@ -160,7 +176,7 @@ def run_and_return(cmd: list[str | Path | int], mode: str = "raw", inject_remind
 def reminders() -> str:
     reminders = which("reminders")
     if not reminders:
-        raise TaskException("reminders-cli not found")
+        raise TaskException("'reminders' from reminders-cli not found in PATH.")
     return reminders
 
 

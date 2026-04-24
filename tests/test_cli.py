@@ -14,10 +14,7 @@ def test_no_command():
     """
     result = cli.invoke(app)
     assert result.exit_code == 2
-    # assert "Usage:" in result.output
-    # # Verify all commands are mentioned
-    # for c in TASK_COMMANDS:
-    #     assert c in result.output
+    assert "Missing command" in result.output
 
 
 @pytest.mark.parametrize("command", TASK_COMMANDS)
@@ -36,7 +33,8 @@ def test_list_unknown():
     assert f"List '{unknown_list}' not found" in unknown_list_result.output
 
 
-def test_add():
+def test_add(test_list):
+    # assert test_list == 0
     pass
 
 

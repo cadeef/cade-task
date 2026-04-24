@@ -44,11 +44,12 @@ def main(
     project = list_name_from_path(project_dir)
 
     # Create list if it is a project in project_dir and doesn't exist
-    if project is not None:
-        task_list = TaskList(project)
-        if not task_list.exists():
-            task_list.create()
-            print(f":information_desk_person: Created list '{project}'.")
+    # FIXME: Calling on every invocation is silly when considering how often
+    # if project is not None:
+    #     task_list = TaskList(project)
+    #     if not task_list.exists():
+    #         task_list.create()
+    #         print(f":information_desk_person: Created list '{project}'.")
 
     ctx.obj["project"] = project
 
@@ -68,6 +69,7 @@ def list_(
         task_list = TaskList(project)
         tasks = [t.title for t in task_list.tasks()]  # type: ignore
     except ListNotFoundException as e:
+        # TODO: Create list when not found
         print(f":x: {e}")
         raise typer.Exit(code=1) from e
 

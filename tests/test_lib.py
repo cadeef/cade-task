@@ -5,6 +5,7 @@ from cade_task.lib import (
     TaskCommandException,
     TaskException,
     TaskItem,
+    TaskList,
     get_lists,
     list_name_from_path,
     reminders,
@@ -36,7 +37,7 @@ def test_list_name_from_path(working_dir, project_dir, expected):
 def test_get_lists(mocker):
     mocker.patch(
         "cade_task.lib.run_and_return",
-        return_value=RunAndReturnResult(command="", output=fixtures.LISTS, unmarshalled_output="", return_code=0),
+        return_value=RunAndReturnResult(command="", output=fixtures.LISTS, unmarshalled_output=b"", return_code=0),
     )
     lists = get_lists()
     assert lists == fixtures.LISTS
@@ -110,8 +111,17 @@ def test_tasklist__tasks():
     pass
 
 
-def test_tasklist__exists():
-    pass
+def test_tasklist__tasks_cached():
+    """Ensure that cached output from tasks() (pass2) matches"""
+    test_list = TaskList("test")
+    pass1 = test_list.tasks()
+    pass2 = test_list.tasks()
+    assert pass1 == pass2
+
+
+def test_tasklist__exists_not_found():
+    test_list = TaskList("asdfasfsjbbddsafdasfasdfsasajfjd")
+    assert test_list.exists() is False
 
 
 def test_tasklist__create():
