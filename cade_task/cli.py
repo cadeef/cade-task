@@ -35,14 +35,7 @@ console = Console()
 
 
 def version_callback(value: bool) -> None:
-    """Print the installed package version and exit when requested.
-
-    Inputs:
-        value: True when the user passed --version or -V.
-
-    Outputs:
-        None. Prints the version and raises typer.Exit when value is True.
-    """
+    """Show the installed version and exit."""
     if value:
         print(importlib.metadata.version(APP_NAME))
         raise typer.Exit()
@@ -73,16 +66,7 @@ def main(
         ),
     ] = None,
 ) -> None:
-    """Initialize shared CLI context before any subcommand runs.
-
-    Inputs:
-        ctx: Typer context used to share data between callback and commands.
-        project_dir: Root directory used to infer the current project/list name.
-        version: Optional eager flag handled by version_callback.
-
-    Outputs:
-        None. Stores the inferred project/list name in ctx.obj["project"].
-    """
+    """Configure shared CLI state before running a subcommand."""
     ctx.ensure_object(dict)
     ctx.obj["project"] = list_name_from_path(project_dir)
 
@@ -99,16 +83,7 @@ def list_(
         typer.Option("--todo", "-t", help="Show only incomplete tasks."),
     ] = False,
 ) -> None:
-    """Show tasks in a Reminders list.
-
-    Inputs:
-        ctx: Typer context containing the inferred project/list name.
-        project: Optional explicit Reminders list name from --list.
-        todo: Reserved flag for future filtering of incomplete tasks.
-
-    Outputs:
-        None. Prints a table of tasks or an empty-list message.
-    """
+    """Show tasks in a Reminders list."""
     selected_project = resolve_project(project, ctx.obj.get("project"))
 
     try:
@@ -131,14 +106,7 @@ def lists(
         typer.Option("--create", help="Create a new Reminders list with this name."),
     ] = None,
 ) -> None:
-    """Show all Reminders lists, or create a new one.
-
-    Inputs:
-        create: Optional name of a new Reminders list to create.
-
-    Outputs:
-        None. Prints either a creation confirmation or a table of list names.
-    """
+    """Show all Reminders lists, or create a new one."""
     if create:
         task_list = TaskList(create)
         task_list.create()
@@ -157,16 +125,7 @@ def add(
         typer.Option("--list", help="Add the task to this Reminders list."),
     ] = None,
 ) -> None:
-    """Create a new task.
-
-    Inputs:
-        ctx: Typer context containing the inferred project/list name.
-        title: One or more words that make up the task title.
-        project: Optional explicit Reminders list name from --list.
-
-    Outputs:
-        None. Prints a confirmation for the created task.
-    """
+    """Create a new task."""
     selected_project = resolve_project(project, ctx.obj.get("project"))
     new_task = TaskItem(title=title, parent=selected_project).add()
     print(f":white_check_mark: Task '{new_task.title}' added to {new_task.parent}.")
@@ -182,17 +141,7 @@ def edit(
         typer.Option("--list", help="Edit a task in this Reminders list."),
     ] = None,
 ) -> None:
-    """Rename a task by index.
-
-    Inputs:
-        ctx: Typer context containing the inferred project/list name.
-        index: Numeric task index shown by the list command.
-        title: One or more words that make up the replacement title.
-        project: Optional explicit Reminders list name from --list.
-
-    Outputs:
-        None. Prints a confirmation after editing the task.
-    """
+    """Rename a task by index."""
     selected_project = resolve_project(project, ctx.obj.get("project"))
     task = TaskItem(title=title, parent=selected_project, index=index)
     task.edit()
@@ -211,16 +160,7 @@ def complete(
         typer.Option("--list", help="Complete tasks in this Reminders list."),
     ] = None,
 ) -> None:
-    """Mark one or more tasks complete.
-
-    Inputs:
-        ctx: Typer context containing the inferred project/list name.
-        tasks: Numeric task indexes to mark complete.
-        project: Optional explicit Reminders list name from --list.
-
-    Outputs:
-        None. Prints a confirmation after completing the tasks.
-    """
+    """Mark one or more tasks complete."""
     selected_project = resolve_project(project, ctx.obj.get("project"))
 
     # Complete from highest to lowest index so earlier completions do not shift later indexes.
@@ -232,14 +172,7 @@ def complete(
 
 @app.command()
 def open() -> None:
-    """Open Reminders.app.
-
-    Inputs:
-        None.
-
-    Outputs:
-        None. Raises typer.Exit with code 1 if macOS fails to open Reminders.
-    """
+    """Open Reminders.app."""
     try:
         run_and_return(
             ["/usr/bin/open", "/System/Applications/Reminders.app/"],
@@ -251,15 +184,7 @@ def open() -> None:
 
 
 def resolve_project(explicit_project: str | None, inferred_project: str | None) -> str:
-    """Choose the Reminders list name for a command.
-
-    Inputs:
-        explicit_project: List name supplied through --list.
-        inferred_project: List name inferred from the current working directory.
-
-    Outputs:
-        The selected list name. Exits the CLI if no list can be determined.
-    """
+    """Choose the Reminders list to use for the current command."""
     project = explicit_project or inferred_project
 
     if not project:
@@ -270,14 +195,7 @@ def resolve_project(explicit_project: str | None, inferred_project: str | None) 
 
 
 def print_tasks(tasks: list[TaskItem]) -> None:
-    """Print tasks as a Rich table.
-
-    Inputs:
-        tasks: TaskItem objects to display.
-
-    Outputs:
-        None. Prints either an empty-list message or a table.
-    """
+    """Render tasks as a Rich table."""
     if not tasks:
         print(":yawning_face: List empty.")
         return
@@ -289,14 +207,7 @@ def print_tasks(tasks: list[TaskItem]) -> None:
 
 
 def print_lists(lists_: list[str]) -> None:
-    """Print Reminders list names as a Rich table.
-
-    Inputs:
-        lists_: Reminders list names to display.
-
-    Outputs:
-        None. Prints a table of list names.
-    """
+    """Render Reminders list names as a Rich table."""
     table = Table(title="Lists", show_header=False)
     for list_name in lists_:
         table.add_row(list_name)
