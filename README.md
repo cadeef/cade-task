@@ -6,13 +6,19 @@ Task is a light CLI wrapper around Reminders.app ([reminders-cli](https://github
 
 ### Install
 
-[pipx](https://pypa.github.io/pipx/):
+Install with [`pipx`](https://pipx.pypa.io/stable/):
 
 ```sh
 pipx install cade-task
 ```
 
-More [install options](https://task.cade.pro/install.html) availble.
+Or with [`uv`](https://docs.astral.sh/uv/):
+
+```sh
+uv tool install cade-task
+```
+
+More [install options](https://task.cade.pro/install.html) available.
 
 ### Set your project directory
 
@@ -26,13 +32,18 @@ export TASK_PROJECT_DIR="${HOME}/awesome_stuff"
 
 ```sh
 $ task list
-               Tasks
-┌───┬─────────────────────────────┐
-│ 0 │ Refactor code, all of it    │
-│ 1 │ Add testing to generator    │
-│ 2 │ Push to prod Friday evening │
-└───┴─────────────────────────────┘
+                           Tasks
+┌───────┬──────────────────────────────────────────────────────┐
+│ Index │ Task                                                 │
+├───────┼──────────────────────────────────────────────────────┤
+│ 0     │ Refactor code, all of it                             │
+│ 1     │ Add testing to generator                             │
+│       │ TODO: handle empty API responses (src/client.py:57)  │
+│       │ PERF: cache parsed reminders output (cade_task/lib.py:91) │
+└───────┴──────────────────────────────────────────────────────┘
 ```
+
+`task list` shows both Reminders tasks and TODO-style comments discovered in the current project. Supported markers include `TODO:`, `FIXME:`, `ISSUE:`, `HACK:`, `TIP:`, `INFO:`, `PERF:`, `TEST:`, `WARN:`, `XXX:`, and `BUG:`.
 
 Check out [usage](https://task.cade.pro/usage.html) or `--help` for more commands.
 

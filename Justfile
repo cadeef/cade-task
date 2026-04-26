@@ -1,6 +1,4 @@
 
-opornone := if `hash op &> /dev/null && echo found` == "found" { "op run --env-file .env --" } else { "" }
-
 # List commands
 default:
   @just --list
@@ -13,25 +11,27 @@ init:
 
 # Run linters linters
 lint:
-  poetry run ruff check .
-  poetry run mypy assemblage
-  poetry run black . --check
+  uv run -- ruff check .
+  uv run -- ruff format --diff | bat -l diff -p
+  uv run -- mypy cade_task
 
 # Run pytest with supplied options
 @test *options:
-  poetry run pytest --cov=assemblage {{options}}
+  uv run -- pytest --cov=cade_task {{options}}
+  uv run -- coverage html
 
 # Run linters in fix mode
 fix:
-  poetry run ruff check . --fix
-  poetry run black .
+  uv run -- ruff format
+  uv run -- ruff check . --fix
 
-# Build docs
+# Build docs (`just docs live` for auto-rebuild)
 docs *type:
-  poetry run {{ if type == "live" { "sphinx-autobuild" } else { "sphinx-build" } }} -b html docs docs/_build/html
+  uv run -- {{ if type == "live" { "sphinx-autobuild" } else { "sphinx-build" } }} -b html docs docs/_build/html
 
 # Enter virtual environment
 shell:
+  # This is busted
   poetry shell
 
 # Publish package to PyPI
@@ -40,12 +40,13 @@ publish:
   # Build package
   poetry build
   # Publish package
-  {{ opornone }} poetry publish
+  poetry publish
 
-docker_socket := `docker context inspect --format '{{.Endpoints.docker.Host}}'`
-docker_status := `limactl ls --json | jq -r 'select(.name == "docker") | .status'`
+# Launch ipython in environment
+ipython:
+  uv run -- ipython
 
-# act shortcut
-act *options:
-  [[ {{docker_status}} == "Running" ]] || limactl start docker
-  act --container-daemon-socket {{docker_socket}} {{options}}
+# Aliases
+alias i := ipython
+alias l := lint
+alias t := test
