@@ -1,44 +1,70 @@
-[tool.poetry]
+[project]
 name = "cade-task"
-version = "0.4.2"
+version = "0.5.0"
 description = "A loose wrapper around reminders-cli"
 readme = "README.md"
-authors = ["Cade Ekblad-Frank <cade@e-f.me>"]
+authors = [
+    { name = "Cade Ekblad-Frank", email = "cade@e-f.me" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "typer>=0.24.2",
+]
 
-[tool.poetry.urls]
+[dependency-groups]
+dev = [
+    "devtools>=0.12.2",
+    "ipython>=9.13.0",
+    "mypy>=1.20.2",
+    "pytest>=9.0.3",
+    "pytest-cov>=7.1.0",
+    "pytest-mock>=3.14.0",
+    "ruff>=0.15.12",
+]
+docs = [
+    "myst-parser>=5.0.0",
+    "pygments>=2.20.0",
+    "sphinx>=9.1.0",
+    "sphinx-autobuild>=2025.8.25",
+    "sphinx-autodoc-typehints>=3.9.8",
+    "sphinx-copybutton>=0.5.2",
+    "sphinx-press-theme>=0.9.1",
+]
+
+[project.urls]
 Repository = "https://github.com/cadeef/cade-task"
 Documentation = "https://task.cade.pro"
 
-[tool.poetry.scripts]
-task = 'cade_task.cli:app'
-
-[tool.poetry.dependencies]
-python = "^3.11"
-typer = {extras = ["all"], version = "^0.9.0"}
-
-[tool.poetry.group.dev.dependencies]
-pytest-cov = "^4.1.0"
-pytest = "^7.4.0"
-black = "^23.7.0"
-ruff = "^0.0.278"
-mypy = "^1.4.1"
-devtools = "^0.11.0"
-pygments = "^2.15.1"
-pytest-mock = "^3.11.1"
-
-[tool.poetry.group.docs.dependencies]
-pygments = "^2.15.1"
-sphinx = "^7.1.1"
-myst-parser = "^2.0.0"
-sphinx-press-theme = "^0.8.0"
-sphinx-copybutton = "^0.5.2"
-sphinx-autodoc-typehints = "^1.24.0"
-sphinx-autobuild = "^2021.3.14"
+[project.scripts]
+task = "cade_task.cli:app"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.ruff]
-# https://beta.ruff.rs/docs/rules/
-select = ["E", "F", "I"]
+# https://docs.astral.sh/ruff/rules/
+lint.select = [
+    "B",
+    "E",
+    "F",
+    "I",
+    "C4",  # List comprehensions
+    # "FIX",  # TODO, FIX, etc
+    "LOG",  # Logger bugs
+    "PT",  # Pytest
+    "RET",  # Returns
+    "SIM",  # Simplify
+    "RUF",  # Ruff-specific
+]
+lint.ignore = [
+    "E501"  # Line too long
+    # "B904",  # Allow raising exceptions without from e, for HTTPException
+]
+line-length = 120
+
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
+explicit = true
