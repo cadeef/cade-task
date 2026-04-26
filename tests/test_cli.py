@@ -14,7 +14,7 @@ import typer
 from typer.testing import CliRunner
 
 from cade_task import cli
-from cade_task.lib import ListNotFoundException, TaskCommandException
+from cade_task.lib import ListNotFoundException, ProjectCommentTask, TaskCommandException
 
 runner = CliRunner()
 
@@ -147,6 +147,7 @@ def test_list_command_prints_tasks(
         tasks_by_list={inferred_project: [FakeTask("Write tests"), FakeTask("Ship")]},
     )
     monkeypatch.setattr(cli, "TaskList", fake_task_list)
+    monkeypatch.setattr(cli, "find_project_comment_tasks", lambda: [])
 
     result = runner.invoke(cli.app, ["list"])
 
@@ -166,6 +167,7 @@ def test_list_command_uses_explicit_list(
         tasks_by_list={"Personal": [FakeTask("Pay bill")]},
     )
     monkeypatch.setattr(cli, "TaskList", fake_task_list)
+    monkeypatch.setattr(cli, "find_project_comment_tasks", lambda: [])
 
     result = runner.invoke(cli.app, ["list", "--list", "Personal"])
 
@@ -189,6 +191,7 @@ def test_list_command_filters_completed_tasks_when_todo_is_set(
         },
     )
     monkeypatch.setattr(cli, "TaskList", fake_task_list)
+    monkeypatch.setattr(cli, "find_project_comment_tasks", lambda: [])
 
     result = runner.invoke(cli.app, ["list", "--todo"])
 
@@ -206,6 +209,7 @@ def test_list_command_prints_empty_message(
     """`list` prints a friendly message when the selected list has no tasks."""
     fake_task_list, _ = fake_task_list_factory(tasks_by_list={inferred_project: []})
     monkeypatch.setattr(cli, "TaskList", fake_task_list)
+    monkeypatch.setattr(cli, "find_project_comment_tasks", lambda: [])
 
     result = runner.invoke(cli.app, ["list"])
 
@@ -221,11 +225,58 @@ def test_list_command_exits_when_list_is_missing(
     """`list` exits with code 1 when the Reminders list cannot be found."""
     fake_task_list, _ = fake_task_list_factory(list_not_found={inferred_project})
     monkeypatch.setattr(cli, "TaskList", fake_task_list)
+    monkeypatch.setattr(cli, "find_project_comment_tasks", lambda: [])
 
     result = runner.invoke(cli.app, ["list"])
 
     assert result.exit_code == 1
     assert "not found" in result.output
+
+
+def test_list_command_includes_project_comment_tasks(
+    monkeypatch: pytest.MonkeyPatch,
+    inferred_project: str,
+    fake_task_list_factory: TaskListFactory,
+) -> None:
+    """`list` shows TODO-style project comments after Reminders tasks."""
+    fake_task_list, _ = fake_task_list_factory(
+        tasks_by_list={inferred_project: [FakeTask("Write tests")]},
+    )
+    monkeypatch.setattr(cli, "TaskList", fake_task_list)
+    monkeypatch.setattr(
+        cli,
+        "find_project_comment_tasks",
+        lambda: [ProjectCommentTask(title="TODO: remove debug print", path="src/app.py", line_number=12)],
+    )
+
+    result = runner.invoke(cli.app, ["list"])
+
+    assert result.exit_code == 0
+    assert "Write tests" in result.output
+    assert "TODO: remove debug print" in result.output
+    assert "src/app.py:12" in result.output
+
+
+def test_list_command_uses_project_comments_when_list_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+    inferred_project: str,
+    fake_task_list_factory: TaskListFactory,
+) -> None:
+    """`list` falls back to project comments when the Reminders list is missing."""
+    fake_task_list, _ = fake_task_list_factory(list_not_found={inferred_project})
+    monkeypatch.setattr(cli, "TaskList", fake_task_list)
+    monkeypatch.setattr(
+        cli,
+        "find_project_comment_tasks",
+        lambda: [ProjectCommentTask(title="FIXME: handle edge case", path="cli.py", line_number=7)],
+    )
+
+    result = runner.invoke(cli.app, ["list"])
+
+    assert result.exit_code == 0
+    assert "not found" in result.output
+    assert "Showing project TODO comments instead." in result.output
+    assert "FIXME: handle edge case" in result.output
 
 
 # ---------------------------------------------------------------------------

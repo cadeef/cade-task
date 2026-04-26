@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from shutil import which
@@ -19,6 +21,23 @@ _RENAME_RULES: dict[str, str] = {
     "startDate": "start_date",
     "list": "parent",
 }
+_COMMENT_MARKER_RE = re.compile(r"\b(TODO|FIXME|ISSUE|HACK|TIP|INFO|PERF|TEST|WARN|XXX|BUG):(.*)")
+_SKIPPED_DIRS = {
+    ".git",
+    ".hg",
+    ".svn",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tox",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "htmlcov",
+    "node_modules",
+}
+_MAX_SCAN_BYTES = 1_000_000
 
 
 @dataclass
@@ -182,6 +201,64 @@ class TaskList:
             None. The next tasks() call will fetch fresh data.
         """
         self._tasks = None
+
+
+@dataclass(frozen=True, slots=True)
+class ProjectCommentTask:
+    """A TODO-style comment discovered in a project file."""
+
+    title: str
+    path: str
+    line_number: int
+
+    @property
+    def location(self) -> str:
+        """Return the display location for the comment."""
+        return f"{self.path}:{self.line_number}"
+
+
+def find_project_comment_tasks(working_dir: str | Path | None = None) -> list[ProjectCommentTask]:
+    """Scan the working directory for TODO-style comments in project files."""
+    root = Path(working_dir).expanduser().resolve() if working_dir else Path.cwd().resolve()
+    matches: list[ProjectCommentTask] = []
+
+    for current_root, dirnames, filenames in os.walk(root):
+        dirnames[:] = sorted(
+            directory for directory in dirnames if directory not in _SKIPPED_DIRS and not directory.startswith(".")
+        )
+
+        for filename in sorted(filenames):
+            if filename.startswith("."):
+                continue
+
+            file_path = Path(current_root) / filename
+
+            try:
+                if file_path.stat().st_size > _MAX_SCAN_BYTES:
+                    continue
+                contents = file_path.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+
+            if "\x00" in contents:
+                continue
+
+            relative_path = file_path.relative_to(root)
+            for line_number, line in enumerate(contents.splitlines(), start=1):
+                match = _COMMENT_MARKER_RE.search(line)
+                if not match:
+                    continue
+
+                title = match.group(0).strip()
+                matches.append(
+                    ProjectCommentTask(
+                        title=title,
+                        path=str(relative_path),
+                        line_number=line_number,
+                    )
+                )
+
+    return matches
 
 
 def list_name_from_path(project_dir: str | Path, working_dir: str | Path | None = None) -> str | None:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.metadata
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -10,13 +11,16 @@ import typer
 from rich import print
 from rich.console import Console
 from rich.table import Table
+from rich.text import Text
 from typing_extensions import Annotated
 
 from .lib import (
     ListNotFoundException,
+    ProjectCommentTask,
     TaskCommandException,
     TaskItem,
     TaskList,
+    find_project_comment_tasks,
     get_lists,
     list_name_from_path,
     run_and_return,
@@ -32,6 +36,28 @@ app = typer.Typer(
     )
 )
 console = Console()
+COMMENT_MARKERS = {
+    "TODO",
+    "FIXME",
+    "ISSUE",
+    "HACK",
+    "TIP",
+    "INFO",
+    "PERF",
+    "TEST",
+    "WARN",
+    "XXX",
+    "BUG",
+}
+
+
+@dataclass(frozen=True, slots=True)
+class DisplayTask:
+    """A single row shown by the list command."""
+
+    title: str
+    location: str = ""
+    index: int | None = None
 
 
 def version_callback(value: bool) -> None:
@@ -83,20 +109,31 @@ def list_(
         typer.Option("--todo", "-t", help="Show only incomplete tasks."),
     ] = False,
 ) -> None:
-    """Show tasks in a Reminders list."""
+    """Show Reminders tasks and TODO-style comments from the current project."""
     selected_project = resolve_project(project, ctx.obj.get("project"))
+    reminders_error: ListNotFoundException | None = None
+    reminder_tasks: list[TaskItem] = []
 
     try:
         task_list = TaskList(selected_project)
-        tasks = task_list.tasks()
+        reminder_tasks = task_list.tasks()
     except ListNotFoundException as e:
-        print(f":x: {e}")
-        raise typer.Exit(code=1) from e
+        reminders_error = e
 
     if todo:
-        tasks = [task for task in tasks if not task.is_complete]
+        reminder_tasks = [task for task in reminder_tasks if not task.is_complete]
 
-    print_tasks(tasks)
+    project_comment_tasks = find_project_comment_tasks()
+    display_tasks = build_display_tasks(reminder_tasks, project_comment_tasks)
+
+    if reminders_error and not project_comment_tasks:
+        print(f":x: {reminders_error}")
+        raise typer.Exit(code=1) from reminders_error
+
+    if reminders_error and project_comment_tasks:
+        print(f":warning: {reminders_error}. Showing project TODO comments instead.")
+
+    print_tasks(display_tasks)
 
 
 @app.command()
@@ -194,15 +231,71 @@ def resolve_project(explicit_project: str | None, inferred_project: str | None) 
     return project
 
 
-def print_tasks(tasks: list[TaskItem]) -> None:
+def build_display_tasks(
+    reminder_tasks: list[TaskItem],
+    project_comment_tasks: list[ProjectCommentTask],
+) -> list[DisplayTask]:
+    """Build rows for the combined task list display."""
+    display_tasks = [
+        DisplayTask(
+            title=str(task.title),
+            index=index,
+        )
+        for index, task in enumerate(reminder_tasks)
+    ]
+    display_tasks.extend(
+        DisplayTask(
+            title=task.title,
+            location=task.location,
+        )
+        for task in project_comment_tasks
+    )
+    return display_tasks
+
+
+def print_tasks(tasks: list[DisplayTask]) -> None:
     """Render tasks as a Rich table."""
     if not tasks:
         print(":yawning_face: List empty.")
         return
 
-    table = Table(title="Tasks", show_header=False)
-    for index, task in enumerate(tasks):
-        table.add_row(str(index), str(task.title))
+    table = Table(
+        title="Tasks",
+        title_style="bold cyan",
+        header_style="bold bright_white",
+        border_style="blue",
+    )
+    table.add_column("Index", no_wrap=True, style="bold green")
+    table.add_column("Task")
+
+    for task in tasks:
+        if task.index is not None:
+            task_text = Text(task.title, style="bright_white")
+        else:
+            task_text = Text()
+            marker, separator, remainder = task.title.partition(":")
+            if separator and marker in COMMENT_MARKERS:
+                task_text.append(f"{marker}:", style="bold cyan")
+                if remainder:
+                    task_text.append(remainder, style="yellow")
+            else:
+                task_text.append(task.title, style="yellow")
+            if task.location:
+                path, _, line_number = task.location.rpartition(":")
+                if path and line_number:
+                    task_text.append(" ")
+                    task_text.append("(", style="dim white")
+                    task_text.append(path, style="dim yellow")
+                    task_text.append(":", style="yellow")
+                    task_text.append(line_number, style="bold magenta")
+                    task_text.append(")", style="dim white")
+                else:
+                    task_text.append(" ")
+                    task_text.append(f"({task.location})", style="dim yellow")
+        table.add_row(
+            "" if task.index is None else str(task.index),
+            task_text,
+        )
     console.print(table)
 
 

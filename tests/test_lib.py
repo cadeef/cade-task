@@ -10,11 +10,13 @@ import pytest
 from cade_task.lib import (
     _RENAME_RULES,
     ListNotFoundException,
+    ProjectCommentTask,
     RunAndReturnResult,
     TaskCommandException,
     TaskException,
     TaskItem,
     TaskList,
+    find_project_comment_tasks,
     get_lists,
     list_name_from_path,
     reminders,
@@ -246,6 +248,87 @@ class TestListNameFromPath:
     def test_deeply_nested_path_returns_only_first_part(self):
         result = list_name_from_path("/base", "/base/project/a/b/c")
         assert result == "project"
+
+
+# ---------------------------------------------------------------------------
+# find_project_comment_tasks()
+# ---------------------------------------------------------------------------
+
+
+class TestFindProjectCommentTasks:
+    def test_finds_todo_style_comments_with_relative_locations(self, tmp_path: Path):
+        source_dir = tmp_path / "src"
+        source_dir.mkdir()
+        file_path = source_dir / "app.py"
+        file_path.write_text("print('hi')\n# TODO: add CLI flag\n// FIXME handle retries\n", encoding="utf-8")
+
+        result = find_project_comment_tasks(tmp_path)
+
+        assert result == [
+            ProjectCommentTask(title="TODO: add CLI flag", path="src/app.py", line_number=2),
+        ]
+
+    def test_ignores_markers_without_a_colon(self, tmp_path: Path):
+        file_path = tmp_path / "app.py"
+        file_path.write_text(
+            "# TODO missing colon\n# FIXME also missing colon\n# BUG: keep this one\n", encoding="utf-8"
+        )
+
+        result = find_project_comment_tasks(tmp_path)
+
+        assert result == [
+            ProjectCommentTask(title="BUG: keep this one", path="app.py", line_number=3),
+        ]
+
+    def test_supports_additional_project_comment_markers(self, tmp_path: Path):
+        file_path = tmp_path / "app.py"
+        file_path.write_text(
+            "\n".join(
+                [
+                    "# ISSUE: investigate flaky retry logic",
+                    "# HACK: temporary compatibility shim",
+                    "# TIP: prefer the cached result here",
+                    "# INFO: synced from upstream API docs",
+                    "# PERF: avoid repeated parsing",
+                    "# TEST: add coverage for empty responses",
+                    "# WARN: this mutates shared state",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        result = find_project_comment_tasks(tmp_path)
+
+        assert result == [
+            ProjectCommentTask(title="ISSUE: investigate flaky retry logic", path="app.py", line_number=1),
+            ProjectCommentTask(title="HACK: temporary compatibility shim", path="app.py", line_number=2),
+            ProjectCommentTask(title="TIP: prefer the cached result here", path="app.py", line_number=3),
+            ProjectCommentTask(title="INFO: synced from upstream API docs", path="app.py", line_number=4),
+            ProjectCommentTask(title="PERF: avoid repeated parsing", path="app.py", line_number=5),
+            ProjectCommentTask(title="TEST: add coverage for empty responses", path="app.py", line_number=6),
+            ProjectCommentTask(title="WARN: this mutates shared state", path="app.py", line_number=7),
+        ]
+
+    def test_skips_hidden_and_generated_directories(self, tmp_path: Path):
+        visible = tmp_path / "pkg"
+        hidden = tmp_path / ".git"
+        generated = tmp_path / "node_modules"
+        visible.mkdir()
+        hidden.mkdir()
+        generated.mkdir()
+        (visible / "main.py").write_text("# TODO: keep me\n", encoding="utf-8")
+        (hidden / "config").write_text("TODO: ignore me\n", encoding="utf-8")
+        (generated / "index.js").write_text("// FIXME ignore me\n", encoding="utf-8")
+
+        result = find_project_comment_tasks(tmp_path)
+
+        assert result == [ProjectCommentTask(title="TODO: keep me", path="pkg/main.py", line_number=1)]
+
+    def test_returns_empty_list_when_no_comment_markers_are_found(self, tmp_path: Path):
+        (tmp_path / "notes.txt").write_text("Nothing to see here.\n", encoding="utf-8")
+
+        assert find_project_comment_tasks(tmp_path) == []
 
 
 # ---------------------------------------------------------------------------
