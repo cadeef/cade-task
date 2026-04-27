@@ -5,14 +5,13 @@ from __future__ import annotations
 import importlib.metadata
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Annotated, Optional
 
 import typer
 from rich import print
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
-from typing_extensions import Annotated
 
 from .lib import (
     ListNotFoundException,
