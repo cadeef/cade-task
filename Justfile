@@ -29,18 +29,13 @@ fix:
 docs *type:
   uv run -- {{ if type == "live" { "sphinx-autobuild" } else { "sphinx-build" } }} -b html docs docs/_build/html
 
-# Enter virtual environment
-shell:
-  # This is busted
-  poetry shell
-
 # Publish package to PyPI
 publish:
-  # Using PyPI token from POETRY_PYPI_TOKEN_PYPI
+  # Using PyPI token from UV_PUBLISH_TOKEN
   # Build package
-  poetry build
+  uv build
   # Publish package
-  poetry publish
+  uv publish
 
 # Launch ipython in environment
 ipython:

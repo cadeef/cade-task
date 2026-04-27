@@ -7,7 +7,11 @@ on:
       - main
     paths:
       - README.md
-      - docs
+      - docs/**
+      - .github/workflows/docs.yml
+      - Justfile
+      - pyproject.toml
+      - uv.lock
 
 permissions:
   contents: read
@@ -19,34 +23,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
-    - uses: extractions/setup-just@v1
+    - uses: actions/checkout@v6
+    - uses: extractions/setup-just@v4
     - name: Setup Python
-      uses: actions/setup-python@v4
-      id: setup-python
+      uses: actions/setup-python@v6
       with:
-        python-version: '3.11'
+        python-version: '3.13'
         architecture: x64
-    - name: Install Poetry
-      uses: snok/install-poetry@v1
+    - name: Setup uv
+      uses: astral-sh/setup-uv@v6
       with:
-        virtualenvs-create: true
-        virtualenvs-in-project: true
-    - name: Load cached venv
-      id: cached-poetry-dependencies
-      uses: actions/cache@v3
-      with:
-        path: .venv
-        key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+        enable-cache: true
+        cache-dependency-glob: uv.lock
     - name: Install dependencies
-      if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-      run: poetry install --no-interaction --no-root --only docs
+      run: uv sync --group docs
     - name: Setup Pages
-      uses: actions/configure-pages@v3
+      uses: actions/configure-pages@v6
     - name: Build docs
       run: just docs
     - name: Upload artifact
-      uses: actions/upload-pages-artifact@v2
+      uses: actions/upload-pages-artifact@v5
       with:
         path: './docs/_build/html'
 
@@ -59,4 +55,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v2
+        uses: actions/deploy-pages@v5
