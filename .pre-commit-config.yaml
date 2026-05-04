@@ -27,7 +27,7 @@ repos:
   #     - id: poetry-check
   #     - id: poetry-lock
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.11.7
+    rev: 0.11.8
     hooks:
       - id: uv-lock
   - repo: https://github.com/tcort/markdown-link-check
