@@ -457,7 +457,7 @@ class TestTaskCommandException:
         # instead of setting stdout separately in the helper.
         err = make_calledprocesserror(output="  stdout content  \n")
         exc = TaskCommandException(err)
-        assert exc.stdout.strip() == "stdout content"
+        assert exc.stdout == "stdout content"
 
 
 # ---------------------------------------------------------------------------
